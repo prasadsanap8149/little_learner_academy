@@ -1,0 +1,60 @@
+name: little_learners_academy
+description: "An educational game app for kids aged 3-12 with Math, Language, Science, and General Knowledge modules."
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.1.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Game and Animation
+  flame: ^1.18.0
+  lottie: ^3.1.2
+
+  # Audio
+  audioplayers: ^6.5.0
+
+  # State Management
+  provider: ^6.1.2
+
+  # Local Storage
+  shared_preferences: ^2.2.3
+
+  # Firebase
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.15.3
+  cloud_firestore: ^4.13.6
+  firebase_analytics: ^10.7.4
+
+  # In-App Purchase
+  in_app_purchase: ^3.1.11
+
+  # Google AdMob
+  google_mobile_ads: ^4.0.0
+
+  # Google Sign In
+  google_sign_in: ^6.1.6
+
+  # Math and utilities
+  collection: ^1.18.0
+
+  # Fonts and icons
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/sounds/
