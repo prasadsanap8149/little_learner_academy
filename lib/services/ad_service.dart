@@ -1,20 +1,32 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'firebase_service.dart';
+import 'package:little_learners_academy/services/firebase_service.dart';
+import 'subscription_service.dart';
 
 class AdService {
   static final AdService _instance = AdService._internal();
   factory AdService() => _instance;
   AdService._internal();
 
-  final FirebaseService _firebaseService = FirebaseService();
+  final SubscriptionService _subscriptionService = SubscriptionService();
 
-  // Replace these with your actual AdMob IDs
-  static const String _bannerAdUnitId =
-      'ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy';
-  static const String _interstitialAdUnitId =
-      'ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy';
-  static const String _rewardedAdUnitId =
-      'ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy';
+  // Test Ad Units - Replace with actual production IDs
+  static const String _bannerAdUnitId = kDebugMode
+      ? 'ca-app-pub-3940256099942544/6300978111' // Test ID
+      : 'ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy'; // Production ID
+
+  static const String _interstitialAdUnitId = kDebugMode
+      ? 'ca-app-pub-3940256099942544/1033173712' // Test ID
+      : 'ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy'; // Production ID
+
+  static const String _rewardedAdUnitId = kDebugMode
+      ? 'ca-app-pub-3940256099942544/5224354917' // Test ID
+      : 'ca-app-pub-xxxxxxxxxxxxxxxx/yyyyyyyyyy'; // Production ID
+
+  // Max number of ads shown per session
+  static const int _maxAdsPerSession = 5;
+  int _adsShownInSession = 0;
+  DateTime? _lastAdShown;
 
   InterstitialAd? _interstitialAd;
   RewardedAd? _rewardedAd;
@@ -39,7 +51,7 @@ class AdService {
   }
 
   Future<void> loadInterstitialAd() async {
-    if (await _firebaseService.isSubscribed()) return;
+    if (await firebaseService.isSubscribed()) return;
 
     await InterstitialAd.load(
       adUnitId: _interstitialAdUnitId,
@@ -57,7 +69,7 @@ class AdService {
   }
 
   Future<void> showInterstitialAd() async {
-    if (await _firebaseService.isSubscribed()) return;
+    if (await firebaseService.isSubscribed()) return;
 
     if (_interstitialAd == null) {
       print('Interstitial ad not loaded');
@@ -80,7 +92,7 @@ class AdService {
   }
 
   Future<void> loadRewardedAd() async {
-    if (await _firebaseService.isSubscribed()) return;
+    if (await firebaseService.isSubscribed()) return;
 
     await RewardedAd.load(
       adUnitId: _rewardedAdUnitId,
@@ -98,7 +110,7 @@ class AdService {
   }
 
   Future<void> showRewardedAd(Function(int amount) onRewarded) async {
-    if (await _firebaseService.isSubscribed()) return;
+    if (await firebaseService.isSubscribed()) return;
 
     if (_rewardedAd == null) {
       print('Rewarded ad not loaded');

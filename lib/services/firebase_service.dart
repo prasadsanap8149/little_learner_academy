@@ -100,3 +100,4 @@ class FirebaseService {
     });
   }
 }
+final FirebaseService firebaseService = FirebaseService();
