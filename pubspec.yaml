@@ -27,19 +27,19 @@ dependencies:
   shared_preferences: ^2.2.3
 
   # Firebase
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.15.3
-  cloud_firestore: ^4.13.6
-  firebase_analytics: ^10.7.4
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.16.0
+  cloud_firestore: ^4.17.5
+  firebase_analytics: ^10.10.7
 
-  # In-App Purchase
-  in_app_purchase: ^3.1.11
+  # Google Sign In
+  google_sign_in: ^6.3.0
+
+  # Payment Integration
+  http: ^1.1.0
 
   # Google AdMob
   google_mobile_ads: ^4.0.0
-
-  # Google Sign In
-  google_sign_in: ^6.1.6
 
   # Math and utilities
   collection: ^1.18.0
@@ -50,7 +50,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
