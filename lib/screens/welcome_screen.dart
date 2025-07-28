@@ -17,7 +17,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
-  int _selectedAge = 0;
+  int _selectedAge = 5;
 
   @override
   void initState() {
