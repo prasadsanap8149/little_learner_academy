@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gma:ad-services-config xmlns:gma="https://www.gstatic.com/hostedservice/gma_android_sdk">
+    <!-- Production App ID for release builds -->
+    <gma:init>
+        <gma:service gma:app-id="ca-app-pub-8068332503400690~7522621935"/>
+    </gma:init>
+</gma:ad-services-config>
+
+
