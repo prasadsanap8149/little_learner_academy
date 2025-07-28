@@ -20,9 +20,8 @@ class SubscriptionScreen extends StatefulWidget {
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
   final RazorpayPaymentService _razorpayService = RazorpayPaymentService();
   final AuthService _authService = AuthService();
-  List<SubscriptionPlan> _plans = SubscriptionPlan.availablePlans;
+  final List<SubscriptionPlan> _plans = SubscriptionPlan.availablePlans;
   bool _isLoading = false;
-  String? _errorMessage;
   SubscriptionPlan? _selectedPlan;
 
   @override
@@ -99,6 +98,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         });
       }
     }
+  }
+
+  Future<void> _handleRazorpayPayment(RazorpayPlan plan) async {
+
   }
 
   RazorpayPlan _mapToRazorpayPlan(SubscriptionPlan plan) {
@@ -487,14 +490,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
+
 
   void _skipForNow() {
     if (widget.isInitialSetup) {
@@ -582,13 +578,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     child: Column(
                       children: [
                         // Free Plan
-                        _buildPlanCard(_plans[0]),
+                        _buildSubscriptionPlanCard(_plans[0]),
                         const SizedBox(height: 16),
 
                         // Premium Plans
                         ..._plans.skip(1).map((plan) => Padding(
                           padding: const EdgeInsets.only(bottom: 16),
-                          child: _buildPlanCard(plan),
+                          child: _buildSubscriptionPlanCard(plan),
                         )),
 
                         const SizedBox(height: 24),
@@ -612,7 +608,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _buildPlanCard(SubscriptionPlan plan) {
+  Widget _buildSubscriptionPlanCard(SubscriptionPlan plan) {
     final isSelected = _selectedPlan?.id == plan.id;
     final isFree = plan.type == PlanType.free;
     
@@ -917,3 +913,5 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 }
+
+
