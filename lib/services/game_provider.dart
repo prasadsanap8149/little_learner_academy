@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:little_learners_academy/screens/welcome_screen.dart';
+import 'package:little_learners_academy/screens/login_screen.dart';
 import 'game_service.dart';
-import 'firebase_service.dart';
+import 'auth_service.dart';
 
 class GameProvider extends ChangeNotifier {
   final GameService _gameService = GameService();
-  final FirebaseService _firebaseService = FirebaseService();
+  final AuthService _authService = AuthService();
   bool _isLoading = true;
   
   GameService get gameService => _gameService;
+  AuthService get authService => _authService;
   bool get isLoading => _isLoading;
   
   GameProvider() {
@@ -23,6 +24,21 @@ class GameProvider extends ChangeNotifier {
   
   Future<void> createPlayer(String name, int age) async {
     await _gameService.createPlayer(name, age);
+    
+    // If user is authenticated, sync with Firebase
+    if (_authService.isAuthenticated) {
+      try {
+        // Update player data in user's profile metadata
+        final currentUser = _authService.currentUser;
+        if (currentUser != null) {
+          // This could be handled by the auth service
+          // For now, we'll just notify listeners
+        }
+      } catch (e) {
+        print('Error syncing player data: $e');
+      }
+    }
+    
     notifyListeners();
   }
   
@@ -58,8 +74,8 @@ class GameProvider extends ChangeNotifier {
       await _gameService.logout();
       
       // Sign out from Firebase if user is authenticated
-      if (_firebaseService.currentUser != null) {
-        await _firebaseService.signOut();
+      if (_authService.currentUser != null) {
+        await _authService.signOut();
       }
       
       // Verify logout was successful
@@ -74,10 +90,10 @@ class GameProvider extends ChangeNotifier {
       // Update UI state
       notifyListeners();
 
-      // Navigate to welcome screen and clear navigation stack
+      // Navigate to login screen and clear navigation stack
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
           (route) => false,
         );
       }
