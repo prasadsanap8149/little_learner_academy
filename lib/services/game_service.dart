@@ -539,6 +539,46 @@ class GameService {
   }
 
   Future<void> logout() async {
-    _currentPlayer = null;
+    try {
+      // Clear current player in memory
+      _currentPlayer = null;
+      
+      // Clear current player ID from SharedPreferences
+      await _prefs.remove(_currentPlayerKey);
+      
+      // Clear all player data from SharedPreferences
+      final keys = _prefs.getKeys();
+      final playerKeys = keys.where((key) => key.startsWith(_playerKey));
+      for (final key in playerKeys) {
+        await _prefs.remove(key);
+      }
+      
+      // Optionally clear all app preferences (uncomment if you want to clear everything)
+      // await _prefs.clear();
+      
+      print('Logout completed successfully - all user data cleared');
+    } catch (e) {
+      print('Error during logout: $e');
+      // Fallback: try to clear everything if selective clearing fails
+      try {
+        _currentPlayer = null;
+        await _prefs.clear();
+        print('Fallback logout completed - all preferences cleared');
+      } catch (fallbackError) {
+        print('Fallback logout also failed: $fallbackError');
+      }
+    }
+  }
+
+  // Method to verify logout was successful
+  bool isLoggedOut() {
+    return _currentPlayer == null && 
+           !_prefs.containsKey(_currentPlayerKey);
+  }
+
+  // Method to get all stored player keys (for debugging)
+  List<String> getStoredPlayerKeys() {
+    final keys = _prefs.getKeys();
+    return keys.where((key) => key.startsWith(_playerKey)).toList();
   }
 }
