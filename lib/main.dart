@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 import 'services/game_provider.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,8 +28,11 @@ class LittleLearnersApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => GameProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => GameProvider()),
+        Provider<AuthService>(create: (context) => AuthService()),
+      ],
       child: MaterialApp(
         title: 'Little Learners Academy',
         debugShowCheckedModeBanner: false,
