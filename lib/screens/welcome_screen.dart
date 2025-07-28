@@ -175,7 +175,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             return _buildLoadingScreen();
           }
 
-          // Show welcome screen with animations
+          // Show welcome screen with responsive design
           return Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -185,18 +185,261 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               ),
             ),
             child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 40),
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 100,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isSmallScreen = constraints.maxHeight < 700;
+                  final headerHeight = isSmallScreen ? 180.0 : 240.0;
+                  
+                  return FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Column(
+                      children: [
+                        // Header Section - Fixed height
+                        SizedBox(
+                          height: headerHeight,
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: isSmallScreen ? 80 : 100,
+                                  height: isSmallScreen ? 80 : 100,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(50),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 10),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.child_care,
+                                    size: isSmallScreen ? 40 : 50,
+                                    color: const Color(0xFF6B73FF),
+                                  ),
+                                ),
+                                SizedBox(height: isSmallScreen ? 16 : 24),
+                                Text(
+                                  'Welcome, Little Learner!',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineMedium
+                                      ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: isSmallScreen ? 20 : 24,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                SizedBox(height: isSmallScreen ? 8 : 12),
+                                Text(
+                                  'Let\'s set up your learning adventure',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.copyWith(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: isSmallScreen ? 14 : 16,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        
+                        // Content Section - Flexible
+                        Expanded(
+                          child: SlideTransition(
+                            position: _slideAnimation,
+                            child: Container(
+                              width: double.infinity,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(24),
+                                  topRight: Radius.circular(24),
+                                ),
+                              ),
+                              child: SingleChildScrollView(
+                                padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'What\'s your name?',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            color: const Color(0xFF2C3E50),
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: isSmallScreen ? 18 : 20,
+                                          ),
+                                    ),
+                                    SizedBox(height: isSmallScreen ? 12 : 16),
+                                    TextField(
+                                      controller: _nameController,
+                                      decoration: InputDecoration(
+                                        hintText: 'Enter your name',
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        filled: true,
+                                        fillColor: const Color(0xFFF8F9FA),
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: isSmallScreen ? 12 : 16,
+                                        ),
+                                      ),
+                                      style: TextStyle(fontSize: isSmallScreen ? 16 : 18),
+                                      onChanged: (value) {
+                                        setState(() {}); // Refresh button state
+                                      },
+                                    ),
+                                    SizedBox(height: isSmallScreen ? 20 : 24),
+                                    Text(
+                                      'How old are you?',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            color: const Color(0xFF2C3E50),
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: isSmallScreen ? 18 : 20,
+                                          ),
+                                    ),
+                                    SizedBox(height: isSmallScreen ? 12 : 16),
+                                    Container(
+                                      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF8F9FA),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Slider(
+                                              value: _selectedAge.toDouble(),
+                                              min: 3,
+                                              max: 12,
+                                              divisions: 9,
+                                              label: '$_selectedAge years old',
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  _selectedAge = value.round();
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          Container(
+                                            width: isSmallScreen ? 50 : 60,
+                                            height: isSmallScreen ? 50 : 60,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF6B73FF),
+                                              borderRadius: BorderRadius.circular(
+                                                isSmallScreen ? 25 : 30,
+                                              ),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                '$_selectedAge',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: isSmallScreen ? 20 : 24,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(height: isSmallScreen ? 30 : 40),
+                                    
+                                    // Start Learning Button
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: isSmallScreen ? 48 : 56,
+                                      child: ElevatedButton(
+                                        onPressed: _nameController.text.trim().isEmpty
+                                            ? null
+                                            : _startLearning,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF6B73FF),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                          elevation: 8,
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              'Start Learning',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleLarge
+                                                  ?.copyWith(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: isSmallScreen ? 16 : 18,
+                                                  ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Icon(Icons.arrow_forward, size: 24),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: isSmallScreen ? 12 : 16),
+                                    
+                                    // Sign In Button
+                                    Center(
+                                      child: TextButton(
+                                        onPressed: () {
+                                          Navigator.of(context).pushReplacement(
+                                            MaterialPageRoute(
+                                              builder: (context) => const LoginScreen(),
+                                            ),
+                                          );
+                                        },
+                                        child: Text(
+                                          'Already have an account? Sign In',
+                                          style: TextStyle(
+                                            color: const Color(0xFF6B73FF),
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: isSmallScreen ? 14 : 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    
+                                    // Add extra padding at bottom for small screens
+                                    SizedBox(height: isSmallScreen ? 20 : 0),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(50),
