@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import '../services/game_provider.dart';
+import '../services/auth_service.dart';
 import 'welcome_screen.dart';
+import 'login_screen.dart';
 import 'home_screen.dart';
+import 'user_setup_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -64,16 +67,37 @@ class _SplashScreenState extends State<SplashScreen>
     }
   }
   
-  void _navigateToNextScreen() {
+  void _navigateToNextScreen() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
     
-    if (gameProvider.gameService.currentPlayer != null) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+    if (authService.isAuthenticated) {
+      // User is authenticated, check if setup is completed
+      final userProfile = await authService.getCurrentUserProfile();
+      final setupCompleted = userProfile?.metadata?['setupCompleted'] ?? false;
+      
+      if (setupCompleted) {
+        // Setup completed, check if we have local game data
+        if (gameProvider.gameService.currentPlayer != null) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        } else {
+          // Authenticated but no game data, go to welcome screen for game setup
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+          );
+        }
+      } else {
+        // User setup not completed
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const UserSetupScreen()),
+        );
+      }
     } else {
+      // User not authenticated, go to login screen
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
     }
   }
