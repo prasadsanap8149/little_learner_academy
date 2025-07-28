@@ -537,4 +537,8 @@ class GameService {
         ];
     }
   }
+
+  Future<void> logout() async {
+    _currentPlayer = null;
+  }
 }

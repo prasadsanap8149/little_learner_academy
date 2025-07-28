@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:little_learners_academy/screens/welcome_screen.dart';
 import 'game_service.dart';
 
 class GameProvider extends ChangeNotifier {
@@ -32,4 +33,15 @@ class GameProvider extends ChangeNotifier {
     await _gameService.addAchievement(achievement);
     notifyListeners();
   }
+
+  Future<void> logout(BuildContext context) async {
+    await _gameService.logout();
+    notifyListeners();
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+          (route) => false,
+    );
+  }
+
 }
