@@ -149,246 +149,256 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
         child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: Column(
-              children: [
-                // Header Section
-                Expanded(
-                  flex: 2,
-                  child: SlideTransition(
-                    position: _slideAnimation,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // App Logo/Icon
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(60),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isSmallScreen = constraints.maxHeight < 700;
+              final headerHeight = isSmallScreen ? 200.0 : 280.0;
+              
+              return FadeTransition(
+                opacity: _fadeAnimation,
+                child: Column(
+                  children: [
+                    // Header Section
+                    SizedBox(
+                      height: headerHeight,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // App Logo/Icon
+                              Container(
+                                width: isSmallScreen ? 100 : 120,
+                                height: isSmallScreen ? 100 : 120,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(60),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.school,
+                                  size: isSmallScreen ? 50 : 60,
+                                  color: const Color(0xFF6B73FF),
+                                ),
+                              ),
+                              SizedBox(height: isSmallScreen ? 24 : 32),
+                              
+                              // App Title
+                              Text(
+                                'Little Learners Academy',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: isSmallScreen ? 22 : 28,
+                                    ),
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: isSmallScreen ? 8 : 16),
+                              
+                              // Subtitle
+                              Text(
+                                'Fun Learning Adventures for Kids',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: isSmallScreen ? 14 : 16,
+                                    ),
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.school,
-                            size: 60,
-                            color: Color(0xFF6B73FF),
-                          ),
                         ),
-                        const SizedBox(height: 32),
-                        
-                        // App Title
-                        Text(
-                          'Little Learners Academy',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineMedium
-                              ?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 28,
-                              ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Subtitle
-                        Text(
-                          'Fun Learning Adventures for Kids',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 16,
-                              ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                
-                // Login Section
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(32),
-                        topRight: Radius.circular(32),
                       ),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 40),
-                          
-                          // Welcome Text
-                          Text(
-                            'Welcome Back!',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(
-                                  color: const Color(0xFF2C3E50),
-                                  fontWeight: FontWeight.bold,
-                                ),
+                    
+                    // Login Section
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(32),
+                            topRight: Radius.circular(32),
                           ),
-                          const SizedBox(height: 12),
-                          
-                          Text(
-                            'Sign in to continue your learning journey',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyLarge
-                                ?.copyWith(
-                                  color: const Color(0xFF7F8C8D),
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 48),
-                          
-                          // Google Sign In Button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: ElevatedButton.icon(
-                              onPressed: _isLoading ? null : _signInWithGoogle,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF2C3E50),
-                                elevation: 2,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: BorderSide(
-                                    color: const Color(0xFFE0E0E0),
-                                    width: 1,
-                                  ),
-                                ),
+                        ),
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.all(isSmallScreen ? 24.0 : 32.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              SizedBox(height: isSmallScreen ? 24 : 40),
+                              
+                              // Welcome Text
+                              Text(
+                                'Welcome Back!',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(
+                                      color: const Color(0xFF2C3E50),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: isSmallScreen ? 20 : 24,
+                                    ),
                               ),
-                              icon: _isLoading
-                                  ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Color(0xFF6B73FF),
-                                        ),
+                              SizedBox(height: isSmallScreen ? 8 : 12),
+                              
+                              Text(
+                                'Sign in to continue your learning journey',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.copyWith(
+                                      color: const Color(0xFF7F8C8D),
+                                      fontSize: isSmallScreen ? 14 : 16,
+                                    ),
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: isSmallScreen ? 32 : 48),
+                              
+                              // Google Sign In Button
+                              SizedBox(
+                                width: double.infinity,
+                                height: isSmallScreen ? 48 : 56,
+                                child: ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : _signInWithGoogle,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: const Color(0xFF2C3E50),
+                                    elevation: 2,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      side: const BorderSide(
+                                        color: Color(0xFFE0E0E0),
+                                        width: 1,
                                       ),
-                                    )
-                                  : Image.asset(
-                                      'assets/images/google_logo.png',
-                                      width: 24,
-                                      height: 24,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return const Icon(
+                                    ),
+                                  ),
+                                  icon: _isLoading
+                                      ? SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation<Color>(
+                                              Color(0xFF6B73FF),
+                                            ),
+                                          ),
+                                        )
+                                      : const Icon(
                                           Icons.login,
                                           size: 24,
                                           color: Color(0xFF6B73FF),
-                                        );
-                                      },
+                                        ),
+                                  label: Text(
+                                    _isLoading 
+                                        ? 'Signing In...' 
+                                        : 'Continue with Google',
+                                    style: TextStyle(
+                                      fontSize: isSmallScreen ? 14 : 16,
+                                      fontWeight: FontWeight.w600,
                                     ),
-                              label: Text(
-                                _isLoading 
-                                    ? 'Signing In...' 
-                                    : 'Continue with Google',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          
-                          // Benefits Section
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8F9FA),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  'Why sign in?',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        color: const Color(0xFF2C3E50),
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                              SizedBox(height: isSmallScreen ? 24 : 32),
+                              
+                              // Benefits Section
+                              Container(
+                                padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8F9FA),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                const SizedBox(height: 16),
-                                
-                                // Benefits List
-                                ...[
-                                  '🎯 Track your child\'s progress',
-                                  '🏆 Unlock achievements and badges',
-                                  '📊 Get detailed learning reports',
-                                  '☁️ Sync across all devices',
-                                  '🎮 Access premium content',
-                                ].map((benefit) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        benefit.split(' ')[0],
-                                        style: const TextStyle(fontSize: 16),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      'Why sign in?',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            color: const Color(0xFF2C3E50),
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: isSmallScreen ? 16 : 18,
+                                          ),
+                                    ),
+                                    SizedBox(height: isSmallScreen ? 12 : 16),
+                                    
+                                    // Benefits List
+                                    ...[
+                                      '🎯 Track your child\'s progress',
+                                      '🏆 Unlock achievements and badges',
+                                      '📊 Get detailed learning reports',
+                                      '☁️ Sync across all devices',
+                                      '🎮 Access premium content',
+                                    ].map((benefit) => Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            benefit.split(' ')[0],
+                                            style: TextStyle(fontSize: isSmallScreen ? 14 : 16),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              benefit.substring(benefit.indexOf(' ') + 1),
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium
+                                                  ?.copyWith(
+                                                    color: const Color(0xFF5D6D7E),
+                                                    fontSize: isSmallScreen ? 12 : 14,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          benefit.substring(benefit.indexOf(' ') + 1),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(
-                                                color: const Color(0xFF5D6D7E),
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )).toList(),
-                              ],
-                            ),
-                          ),
-                          
-                          const Spacer(),
-                          
-                          // Privacy Note
-                          Text(
-                            'By signing in, you agree to our Terms of Service and Privacy Policy',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: const Color(0xFF95A5A6),
+                                    )).toList(),
+                                  ],
                                 ),
-                            textAlign: TextAlign.center,
+                              ),
+                              
+                              SizedBox(height: isSmallScreen ? 24 : 32),
+                              
+                              // Privacy Note
+                              Text(
+                                'By signing in, you agree to our Terms of Service and Privacy Policy',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: const Color(0xFF95A5A6),
+                                      fontSize: isSmallScreen ? 11 : 12,
+                                    ),
+                                textAlign: TextAlign.center,
+                              ),
+                              
+                              // Extra padding for small screens
+                              SizedBox(height: isSmallScreen ? 20 : 0),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
