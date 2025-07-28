@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/game_provider.dart';
 import 'home_screen.dart';
+import 'login_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -376,15 +377,29 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                                 ?.copyWith(
                                                   color: Colors.white,
                                                   fontWeight: FontWeight.w600,
-                                                ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          const Icon(Icons.arrow_forward,
+                                                ),                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward,
                                               size: 24),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                              );
+                            },
+                            child: const Text(
+                              'Already have an account? Sign In',
+                              style: TextStyle(
+                                color: Color(0xFF6B73FF),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                                 ],
                               ),
                             ),
