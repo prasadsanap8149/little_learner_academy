@@ -19,8 +19,8 @@ class _LoginScreenState extends State<LoginScreen>
   final AuthService _authService = AuthService();
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();          
-final _nameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _nameController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   
   bool _isLoading = false;
@@ -405,7 +405,9 @@ final _nameController = TextEditingController();
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    SizedBox(height: isKeyboardOpen ? 8 : 16),                                    // Auth Mode Toggle
+                                    SizedBox(height: isKeyboardOpen ? 8 : 16),
+                                    
+                                    // Auth Mode Toggle
                                     Container(
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFF8F9FA),
@@ -587,7 +589,9 @@ final _nameController = TextEditingController();
                                       ),
                                     ],
                                     
-                                    SizedBox(height: isKeyboardOpen ? 12 : 16),                                    // Forgot Password (for sign in only)
+                                    SizedBox(height: isKeyboardOpen ? 12 : 16),
+                                    
+                                    // Forgot Password (for sign in only)
                                     if (_authMode == AuthMode.signIn && !isKeyboardOpen)
                                       Align(
                                         alignment: Alignment.centerRight,
@@ -635,7 +639,9 @@ final _nameController = TextEditingController();
                                       ),
                                     ),
                                     
-                                    SizedBox(height: isKeyboardOpen ? 12 : 16),                                    // Divider
+                                    SizedBox(height: isKeyboardOpen ? 12 : 16),
+                                    
+                                    // Divider
                                     Row(
                                       children: [
                                         Expanded(child: Divider(color: Colors.grey.shade300)),
@@ -704,12 +710,32 @@ final _nameController = TextEditingController();
                                             ),
                                         textAlign: TextAlign.center,
                                       ),
-                                    ] else ...[
-                                      SizedBox(height: 8),
                                     ],
-                              ],
-                            ),
+                                  ),
+                                ),
+                              ),
                           ),
+                        ),
+                      ),
+                      AnimatedOpacity(
+                        opacity: isKeyboardOpen ? 0 : 1,
+                        duration: const Duration(milliseconds: 300),
+                        child: Column(
+                          children: [
+                            SizedBox(height: 12),
+                            // Privacy Note
+                            Text(
+                              'By ${_authMode == AuthMode.signIn ? 'signing in' : 'creating an account'}, you agree to our Terms of Service and Privacy Policy',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: const Color(0xFF95A5A6),
+                                    fontSize: 10,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                     ),
