@@ -225,4 +225,4 @@ class EncryptionService {
   /// Get encryption algorithm info
   String get encryptionInfo => 'AES-256-CBC with random IV per operation';
 }
-}
+

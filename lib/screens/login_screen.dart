@@ -329,8 +329,8 @@ class _LoginScreenState extends State<LoginScreen>
                             children: [
                               // App Logo/Icon
                               Container(
-                                width: isSmallScreen ? 80 : 100,
-                                height: isSmallScreen ? 80 : 100,
+                                width: isSmallScreen ? 70 : 80,
+                                height: isSmallScreen ? 70 : 80,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(50),
