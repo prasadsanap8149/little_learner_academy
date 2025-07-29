@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../services/auth_service.dart';
 import 'user_setup_screen.dart';
 import 'home_screen.dart';
+
+enum AuthMode { signIn, signUp }
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,7 +17,17 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> 
     with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  AuthMode _authMode = AuthMode.signIn;
+  
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -46,6 +59,10 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _animationController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -58,50 +75,11 @@ class _LoginScreenState extends State<LoginScreen>
       final userCredential = await _authService.signInWithGoogle();
       
       if (userCredential != null && mounted) {
-        // Check if user setup is completed
-        final userProfile = await _authService.getCurrentUserProfile();
-        final setupCompleted = userProfile?.metadata?['setupCompleted'] ?? false;
-        
-        if (setupCompleted) {
-          // Navigate to home screen
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        } else {
-          // Navigate to user setup screen
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const UserSetupScreen()),
-          );
-        }
+        await _navigateAfterAuth();
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage = 'An error occurred during sign in';
-      
-      switch (e.code) {
-        case 'account-exists-with-different-credential':
-          errorMessage = 'Account exists with different credentials';
-          break;
-        case 'invalid-credential':
-          errorMessage = 'Invalid credentials';
-          break;
-        case 'operation-not-allowed':
-          errorMessage = 'Google sign-in is not enabled';
-          break;
-        case 'user-disabled':
-          errorMessage = 'This account has been disabled';
-          break;
-        case 'user-not-found':
-          errorMessage = 'No account found';
-          break;
-        case 'wrong-password':
-          errorMessage = 'Wrong password';
-          break;
-        default:
-          errorMessage = e.message ?? errorMessage;
-      }
-      
       if (mounted) {
-        _showErrorDialog(errorMessage);
+        _showErrorDialog(_getFirebaseErrorMessage(e));
       }
     } catch (e) {
       if (mounted) {
@@ -116,11 +94,138 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  Future<void> _signInWithEmailPassword() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final userCredential = await _authService.signInWithEmailPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      
+      if (userCredential != null && mounted) {
+        await _navigateAfterAuth();
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        _showErrorDialog(_getFirebaseErrorMessage(e));
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorDialog('Failed to sign in: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _signUpWithEmailPassword() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final userCredential = await _authService.signUpWithEmailPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        name: _nameController.text.trim(),
+      );
+      
+      if (userCredential != null && mounted) {
+        // Send email verification
+        await _authService.sendEmailVerification();
+        _showSuccessDialog('Account created successfully! Please check your email for verification.');
+        await _navigateAfterAuth();
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        _showErrorDialog(_getFirebaseErrorMessage(e));
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorDialog('Failed to create account: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    if (_emailController.text.trim().isEmpty) {
+      _showErrorDialog('Please enter your email address first.');
+      return;
+    }
+
+    try {
+      await _authService.resetPassword(_emailController.text.trim());
+      _showSuccessDialog('Password reset email sent! Check your inbox.');
+    } on FirebaseAuthException catch (e) {
+      _showErrorDialog(_getFirebaseErrorMessage(e));
+    } catch (e) {
+      _showErrorDialog('Failed to send reset email: ${e.toString()}');
+    }
+  }
+
+  Future<void> _navigateAfterAuth() async {
+    // Check if user setup is completed
+    final userProfile = await _authService.getCurrentUserProfile();
+    final setupCompleted = userProfile?.metadata?['setupCompleted'] ?? false;
+    
+    if (setupCompleted) {
+      // Navigate to home screen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } else {
+      // Navigate to user setup screen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const UserSetupScreen()),
+      );
+    }
+  }
+
+  String _getFirebaseErrorMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'weak-password':
+        return 'The password provided is too weak.';
+      case 'email-already-in-use':
+        return 'An account already exists for this email.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'user-not-found':
+        return 'No account found for this email.';
+      case 'wrong-password':
+        return 'Incorrect password.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'too-many-requests':
+        return 'Too many failed attempts. Please try again later.';
+      case 'operation-not-allowed':
+        return 'Email/password sign-in is not enabled.';
+      default:
+        return e.message ?? 'An error occurred. Please try again.';
+    }
+  }
+
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign In Error'),
+        title: const Text('Error'),
         content: Text(message),
         actions: [
           TextButton(
@@ -130,6 +235,60 @@ class _LoginScreenState extends State<LoginScreen>
         ],
       ),
     );
+  }
+
+  void _showSuccessDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Success'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Email is required';
+    }
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    if (!emailRegex.hasMatch(value.trim())) {
+      return 'Please enter a valid email';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Password is required';
+    }
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
+  }
+
+  String? _validateName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Name is required';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please confirm your password';
+    }
+    if (value != _passwordController.text) {
+      return 'Passwords do not match';
+    }
+    return null;
   }
 
   @override
@@ -152,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen>
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isSmallScreen = constraints.maxHeight < 700;
-              final headerHeight = isSmallScreen ? 200.0 : 280.0;
+              final headerHeight = isSmallScreen ? 150.0 : 200.0;
               
               return FadeTransition(
                 opacity: _fadeAnimation,
@@ -170,11 +329,11 @@ class _LoginScreenState extends State<LoginScreen>
                             children: [
                               // App Logo/Icon
                               Container(
-                                width: isSmallScreen ? 100 : 120,
-                                height: isSmallScreen ? 100 : 120,
+                                width: isSmallScreen ? 80 : 100,
+                                height: isSmallScreen ? 80 : 100,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(60),
+                                  borderRadius: BorderRadius.circular(50),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.2),
@@ -185,11 +344,11 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                                 child: Icon(
                                   Icons.school,
-                                  size: isSmallScreen ? 50 : 60,
+                                  size: isSmallScreen ? 40 : 50,
                                   color: const Color(0xFF6B73FF),
                                 ),
                               ),
-                              SizedBox(height: isSmallScreen ? 24 : 32),
+                              SizedBox(height: isSmallScreen ? 16 : 24),
                               
                               // App Title
                               Text(
@@ -200,21 +359,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     ?.copyWith(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: isSmallScreen ? 22 : 28,
-                                    ),
-                                textAlign: TextAlign.center,
-                              ),
-                              SizedBox(height: isSmallScreen ? 8 : 16),
-                              
-                              // Subtitle
-                              Text(
-                                'Fun Learning Adventures for Kids',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: isSmallScreen ? 14 : 16,
+                                      fontSize: isSmallScreen ? 18 : 24,
                                     ),
                                 textAlign: TextAlign.center,
                               ),
@@ -236,161 +381,296 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                         child: SingleChildScrollView(
-                          padding: EdgeInsets.all(isSmallScreen ? 24.0 : 32.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              SizedBox(height: isSmallScreen ? 24 : 40),
-                              
-                              // Welcome Text
-                              Text(
-                                'Welcome Back!',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
-                                    ?.copyWith(
-                                      color: const Color(0xFF2C3E50),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: isSmallScreen ? 20 : 24,
-                                    ),
-                              ),
-                              SizedBox(height: isSmallScreen ? 8 : 12),
-                              
-                              Text(
-                                'Sign in to continue your learning journey',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(
-                                      color: const Color(0xFF7F8C8D),
-                                      fontSize: isSmallScreen ? 14 : 16,
-                                    ),
-                                textAlign: TextAlign.center,
-                              ),
-                              SizedBox(height: isSmallScreen ? 32 : 48),
-                              
-                              // Google Sign In Button
-                              SizedBox(
-                                width: double.infinity,
-                                height: isSmallScreen ? 48 : 56,
-                                child: ElevatedButton.icon(
-                                  onPressed: _isLoading ? null : _signInWithGoogle,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: const Color(0xFF2C3E50),
-                                    elevation: 2,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                      side: const BorderSide(
-                                        color: Color(0xFFE0E0E0),
-                                        width: 1,
-                                      ),
-                                    ),
+                          padding: EdgeInsets.all(isSmallScreen ? 20.0 : 24.0),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                SizedBox(height: isSmallScreen ? 16 : 24),
+                                
+                                // Auth Mode Toggle
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8F9FA),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  icon: _isLoading
-                                      ? SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(
-                                              Color(0xFF6B73FF),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () => setState(() => _authMode = AuthMode.signIn),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            decoration: BoxDecoration(
+                                              color: _authMode == AuthMode.signIn 
+                                                  ? const Color(0xFF6B73FF) 
+                                                  : Colors.transparent,
+                                              borderRadius: BorderRadius.circular(12),
                                             ),
-                                          ),
-                                        )
-                                      : const Icon(
-                                          Icons.login,
-                                          size: 24,
-                                          color: Color(0xFF6B73FF),
-                                        ),
-                                  label: Text(
-                                    _isLoading 
-                                        ? 'Signing In...' 
-                                        : 'Continue with Google',
-                                    style: TextStyle(
-                                      fontSize: isSmallScreen ? 14 : 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: isSmallScreen ? 24 : 32),
-                              
-                              // Benefits Section
-                              Container(
-                                padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF8F9FA),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      'Why sign in?',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            color: const Color(0xFF2C3E50),
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: isSmallScreen ? 16 : 18,
-                                          ),
-                                    ),
-                                    SizedBox(height: isSmallScreen ? 12 : 16),
-                                    
-                                    // Benefits List
-                                    ...[
-                                      '🎯 Track your child\'s progress',
-                                      '🏆 Unlock achievements and badges',
-                                      '📊 Get detailed learning reports',
-                                      '☁️ Sync across all devices',
-                                      '🎮 Access premium content',
-                                    ].map((benefit) => Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4),
-                                      child: Row(
-                                        children: [
-                                          Text(
-                                            benefit.split(' ')[0],
-                                            style: TextStyle(fontSize: isSmallScreen ? 14 : 16),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
                                             child: Text(
-                                              benefit.substring(benefit.indexOf(' ') + 1),
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium
-                                                  ?.copyWith(
-                                                    color: const Color(0xFF5D6D7E),
-                                                    fontSize: isSmallScreen ? 12 : 14,
-                                                  ),
+                                              'Sign In',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: _authMode == AuthMode.signIn 
+                                                    ? Colors.white 
+                                                    : const Color(0xFF7F8C8D),
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
                                           ),
-                                        ],
+                                        ),
                                       ),
-                                    )).toList(),
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () => setState(() => _authMode = AuthMode.signUp),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            decoration: BoxDecoration(
+                                              color: _authMode == AuthMode.signUp 
+                                                  ? const Color(0xFF6B73FF) 
+                                                  : Colors.transparent,
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              'Sign Up',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: _authMode == AuthMode.signUp 
+                                                    ? Colors.white 
+                                                    : const Color(0xFF7F8C8D),
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                
+                                SizedBox(height: isSmallScreen ? 20 : 24),
+                                
+                                // Title
+                                Text(
+                                  _authMode == AuthMode.signIn ? 'Welcome Back!' : 'Create Account',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        color: const Color(0xFF2C3E50),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: isSmallScreen ? 18 : 22,
+                                      ),
+                                ),
+                                SizedBox(height: isSmallScreen ? 6 : 8),
+                                
+                                Text(
+                                  _authMode == AuthMode.signIn 
+                                      ? 'Sign in to continue your learning journey'
+                                      : 'Join us and start your learning adventure',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.copyWith(
+                                        color: const Color(0xFF7F8C8D),
+                                        fontSize: isSmallScreen ? 12 : 14,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                SizedBox(height: isSmallScreen ? 20 : 24),
+                                
+                                // Name Field (for sign up only)
+                                if (_authMode == AuthMode.signUp) ...[
+                                  TextFormField(
+                                    controller: _nameController,
+                                    validator: _validateName,
+                                    decoration: InputDecoration(
+                                      labelText: 'Full Name',
+                                      prefixIcon: const Icon(Icons.person),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                                
+                                // Email Field
+                                TextFormField(
+                                  controller: _emailController,
+                                  validator: _validateEmail,
+                                  keyboardType: TextInputType.emailAddress,
+                                  decoration: InputDecoration(
+                                    labelText: 'Email',
+                                    prefixIcon: const Icon(Icons.email),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                
+                                // Password Field
+                                TextFormField(
+                                  controller: _passwordController,
+                                  validator: _validatePassword,
+                                  obscureText: _obscurePassword,
+                                  decoration: InputDecoration(
+                                    labelText: 'Password',
+                                    prefixIcon: const Icon(Icons.lock),
+                                    suffixIcon: IconButton(
+                                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                      icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                                
+                                // Confirm Password Field (for sign up only)
+                                if (_authMode == AuthMode.signUp) ...[
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: _confirmPasswordController,
+                                    validator: _validateConfirmPassword,
+                                    obscureText: _obscureConfirmPassword,
+                                    decoration: InputDecoration(
+                                      labelText: 'Confirm Password',
+                                      prefixIcon: const Icon(Icons.lock_outline),
+                                      suffixIcon: IconButton(
+                                        onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                                        icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                
+                                SizedBox(height: isSmallScreen ? 16 : 20),
+                                
+                                // Forgot Password (for sign in only)
+                                if (_authMode == AuthMode.signIn)
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: _resetPassword,
+                                      child: const Text('Forgot Password?'),
+                                    ),
+                                  ),
+                                
+                                SizedBox(height: isSmallScreen ? 16 : 20),
+                                
+                                // Auth Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: isSmallScreen ? 45 : 50,
+                                  child: ElevatedButton(
+                                    onPressed: _isLoading 
+                                        ? null 
+                                        : (_authMode == AuthMode.signIn 
+                                            ? _signInWithEmailPassword 
+                                            : _signUpWithEmailPassword),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF6B73FF),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child: _isLoading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          )
+                                        : Text(
+                                            _authMode == AuthMode.signIn ? 'Sign In' : 'Create Account',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                
+                                SizedBox(height: isSmallScreen ? 16 : 20),
+                                
+                                // Divider
+                                Row(
+                                  children: [
+                                    Expanded(child: Divider(color: Colors.grey.shade300)),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      child: Text(
+                                        'OR',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(child: Divider(color: Colors.grey.shade300)),
                                   ],
                                 ),
-                              ),
-                              
-                              SizedBox(height: isSmallScreen ? 24 : 32),
-                              
-                              // Privacy Note
-                              Text(
-                                'By signing in, you agree to our Terms of Service and Privacy Policy',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: const Color(0xFF95A5A6),
-                                      fontSize: isSmallScreen ? 11 : 12,
+                                
+                                SizedBox(height: isSmallScreen ? 16 : 20),
+                                
+                                // Google Sign In Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: isSmallScreen ? 45 : 50,
+                                  child: ElevatedButton.icon(
+                                    onPressed: _isLoading ? null : _signInWithGoogle,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: const Color(0xFF2C3E50),
+                                      elevation: 2,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: const BorderSide(
+                                          color: Color(0xFFE0E0E0),
+                                          width: 1,
+                                        ),
+                                      ),
                                     ),
-                                textAlign: TextAlign.center,
-                              ),
-                              
-                              // Extra padding for small screens
-                              SizedBox(height: isSmallScreen ? 20 : 0),
-                            ],
+                                    icon: SvgPicture.asset(
+                                      'assets/images/google_logo.svg',
+                                      width: 20,
+                                      height: 20,
+                                    ),
+                                    label: Text(
+                                      'Continue with Google',
+                                      style: TextStyle(
+                                        fontSize: isSmallScreen ? 14 : 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                
+                                SizedBox(height: isSmallScreen ? 16 : 20),
+                                
+                                // Privacy Note
+                                Text(
+                                  'By ${_authMode == AuthMode.signIn ? 'signing in' : 'creating an account'}, you agree to our Terms of Service and Privacy Policy',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: const Color(0xFF95A5A6),
+                                        fontSize: isSmallScreen ? 10 : 11,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
