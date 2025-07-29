@@ -19,8 +19,8 @@ class _LoginScreenState extends State<LoginScreen>
   final AuthService _authService = AuthService();
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _nameController = TextEditingController();
+  final _passwordController = TextEditingController();          
+final _nameController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   
   bool _isLoading = false;
@@ -294,6 +294,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -310,69 +311,78 @@ class _LoginScreenState extends State<LoginScreen>
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final isSmallScreen = constraints.maxHeight < 700;
-              final headerHeight = isSmallScreen ? 150.0 : 200.0;
+              final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+              final isKeyboardOpen = keyboardHeight > 0;
+              final availableHeight = constraints.maxHeight - keyboardHeight;
+              final isSmallScreen = availableHeight < 600;
+              final headerHeight = isKeyboardOpen ? 80.0 : (isSmallScreen ? 120.0 : 180.0);
               
               return FadeTransition(
                 opacity: _fadeAnimation,
                 child: Column(
                   children: [
-                    // Header Section
-                    SizedBox(
-                      height: headerHeight,
-                      child: SlideTransition(
-                        position: _slideAnimation,
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // App Logo/Icon
-                              Container(
-                                width: isSmallScreen ? 70 : 80,
-                                height: isSmallScreen ? 70 : 80,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(50),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
+                    // Header Section - Collapsible when keyboard is open
+                    if (!isKeyboardOpen || !isSmallScreen)
+                      SizedBox(
+                        height: headerHeight,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: Padding(
+                            padding: EdgeInsets.all(isKeyboardOpen ? 12.0 : 24.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // App Logo/Icon
+                                Container(
+                                  width: isKeyboardOpen ? 50 : (isSmallScreen ? 60 : 80),
+                                  height: isKeyboardOpen ? 50 : (isSmallScreen ? 60 : 80),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(50),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 15,
+                                        offset: const Offset(0, 5),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.school,
+                                    size: isKeyboardOpen ? 25 : (isSmallScreen ? 30 : 40),
+                                    color: const Color(0xFF6B73FF),
+                                  ),
                                 ),
-                                child: Icon(
-                                  Icons.school,
-                                  size: isSmallScreen ? 40 : 50,
-                                  color: const Color(0xFF6B73FF),
-                                ),
-                              ),
-                              SizedBox(height: isSmallScreen ? 16 : 24),
-                              
-                              // App Title
-                              Text(
-                                'Little Learners Academy',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineMedium
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: isSmallScreen ? 18 : 24,
-                                    ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                                if (!isKeyboardOpen) ...[
+                                  SizedBox(height: isSmallScreen ? 12 : 16),
+                                  
+                                  // App Title
+                                  Text(
+                                    'Little Learners Academy',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineMedium
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: isSmallScreen ? 16 : 20,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
                     
-                    // Login Section
+                    // Login Section - Takes remaining space
                     Expanded(
                       child: Container(
                         width: double.infinity,
+                        margin: EdgeInsets.only(
+                          top: isKeyboardOpen && isSmallScreen ? 8 : 0,
+                        ),
                         decoration: const BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.only(
@@ -381,294 +391,322 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                         child: SingleChildScrollView(
-                          padding: EdgeInsets.all(isSmallScreen ? 20.0 : 24.0),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                SizedBox(height: isSmallScreen ? 16 : 24),
-                                
-                                // Auth Mode Toggle
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8F9FA),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: () => setState(() => _authMode = AuthMode.signIn),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(vertical: 12),
-                                            decoration: BoxDecoration(
-                                              color: _authMode == AuthMode.signIn 
-                                                  ? const Color(0xFF6B73FF) 
-                                                  : Colors.transparent,
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            child: Text(
-                                              'Sign In',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: _authMode == AuthMode.signIn 
-                                                    ? Colors.white 
-                                                    : const Color(0xFF7F8C8D),
-                                                fontWeight: FontWeight.w600,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 20.0,
+                            vertical: isKeyboardOpen ? 12.0 : 20.0,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: availableHeight - headerHeight - 100,
+                            ),
+                            child: IntrinsicHeight(
+                              child: Form(
+                                key: _formKey,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    SizedBox(height: isKeyboardOpen ? 8 : 16),                                    // Auth Mode Toggle
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF8F9FA),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: GestureDetector(
+                                              onTap: () => setState(() => _authMode = AuthMode.signIn),
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  vertical: isKeyboardOpen ? 8 : 12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: _authMode == AuthMode.signIn 
+                                                      ? const Color(0xFF6B73FF) 
+                                                      : Colors.transparent,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  'Sign In',
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    color: _authMode == AuthMode.signIn 
+                                                        ? Colors.white 
+                                                        : const Color(0xFF7F8C8D),
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: isKeyboardOpen ? 14 : 16,
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: () => setState(() => _authMode = AuthMode.signUp),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(vertical: 12),
-                                            decoration: BoxDecoration(
-                                              color: _authMode == AuthMode.signUp 
-                                                  ? const Color(0xFF6B73FF) 
-                                                  : Colors.transparent,
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            child: Text(
-                                              'Sign Up',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: _authMode == AuthMode.signUp 
-                                                    ? Colors.white 
-                                                    : const Color(0xFF7F8C8D),
-                                                fontWeight: FontWeight.w600,
+                                          Expanded(
+                                            child: GestureDetector(
+                                              onTap: () => setState(() => _authMode = AuthMode.signUp),
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  vertical: isKeyboardOpen ? 8 : 12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: _authMode == AuthMode.signUp 
+                                                      ? const Color(0xFF6B73FF) 
+                                                      : Colors.transparent,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  'Sign Up',
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    color: _authMode == AuthMode.signUp 
+                                                        ? Colors.white 
+                                                        : const Color(0xFF7F8C8D),
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: isKeyboardOpen ? 14 : 16,
+                                                  ),
+                                                ),
                                               ),
                                             ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    
+                                    SizedBox(height: isKeyboardOpen ? 12 : 20),
+                                    
+                                    // Title
+                                    Text(
+                                      _authMode == AuthMode.signIn ? 'Welcome Back!' : 'Create Account',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            color: const Color(0xFF2C3E50),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isKeyboardOpen ? 16 : 20,
+                                          ),
+                                    ),
+                                    if (!isKeyboardOpen) ...[
+                                      SizedBox(height: 6),
+                                      Text(
+                                        _authMode == AuthMode.signIn 
+                                            ? 'Sign in to continue your learning journey'
+                                            : 'Join us and start your learning adventure',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyLarge
+                                            ?.copyWith(
+                                              color: const Color(0xFF7F8C8D),
+                                              fontSize: 12,
+                                            ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                    SizedBox(height: isKeyboardOpen ? 12 : 20),                                    // Name Field (for sign up only)
+                                    if (_authMode == AuthMode.signUp) ...[
+                                      TextFormField(
+                                        controller: _nameController,
+                                        validator: _validateName,
+                                        decoration: InputDecoration(
+                                          labelText: 'Full Name',
+                                          prefixIcon: const Icon(Icons.person),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: isKeyboardOpen ? 12 : 16,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(height: isKeyboardOpen ? 12 : 16),
+                                    ],
+                                    
+                                    // Email Field
+                                    TextFormField(
+                                      controller: _emailController,
+                                      validator: _validateEmail,
+                                      keyboardType: TextInputType.emailAddress,
+                                      decoration: InputDecoration(
+                                        labelText: 'Email',
+                                        prefixIcon: const Icon(Icons.email),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: isKeyboardOpen ? 12 : 16,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: isKeyboardOpen ? 12 : 16),
+                                    
+                                    // Password Field
+                                    TextFormField(
+                                      controller: _passwordController,
+                                      validator: _validatePassword,
+                                      obscureText: _obscurePassword,
+                                      decoration: InputDecoration(
+                                        labelText: 'Password',
+                                        prefixIcon: const Icon(Icons.lock),
+                                        suffixIcon: IconButton(
+                                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                          icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: isKeyboardOpen ? 12 : 16,
+                                        ),
+                                      ),
+                                    ),
+                                    
+                                    // Confirm Password Field (for sign up only)
+                                    if (_authMode == AuthMode.signUp) ...[
+                                      SizedBox(height: isKeyboardOpen ? 12 : 16),
+                                      TextFormField(
+                                        controller: _confirmPasswordController,
+                                        validator: _validateConfirmPassword,
+                                        obscureText: _obscureConfirmPassword,
+                                        decoration: InputDecoration(
+                                          labelText: 'Confirm Password',
+                                          prefixIcon: const Icon(Icons.lock_outline),
+                                          suffixIcon: IconButton(
+                                            onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                                            icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: isKeyboardOpen ? 12 : 16,
                                           ),
                                         ),
                                       ),
                                     ],
-                                  ),
-                                ),
-                                
-                                SizedBox(height: isSmallScreen ? 20 : 24),
-                                
-                                // Title
-                                Text(
-                                  _authMode == AuthMode.signIn ? 'Welcome Back!' : 'Create Account',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineSmall
-                                      ?.copyWith(
-                                        color: const Color(0xFF2C3E50),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: isSmallScreen ? 18 : 22,
+                                    
+                                    SizedBox(height: isKeyboardOpen ? 12 : 16),                                    // Forgot Password (for sign in only)
+                                    if (_authMode == AuthMode.signIn && !isKeyboardOpen)
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: TextButton(
+                                          onPressed: _resetPassword,
+                                          child: const Text('Forgot Password?'),
+                                        ),
                                       ),
-                                ),
-                                SizedBox(height: isSmallScreen ? 6 : 8),
-                                
-                                Text(
-                                  _authMode == AuthMode.signIn 
-                                      ? 'Sign in to continue your learning journey'
-                                      : 'Join us and start your learning adventure',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyLarge
-                                      ?.copyWith(
-                                        color: const Color(0xFF7F8C8D),
-                                        fontSize: isSmallScreen ? 12 : 14,
-                                      ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                SizedBox(height: isSmallScreen ? 20 : 24),
-                                
-                                // Name Field (for sign up only)
-                                if (_authMode == AuthMode.signUp) ...[
-                                  TextFormField(
-                                    controller: _nameController,
-                                    validator: _validateName,
-                                    decoration: InputDecoration(
-                                      labelText: 'Full Name',
-                                      prefixIcon: const Icon(Icons.person),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                                
-                                // Email Field
-                                TextFormField(
-                                  controller: _emailController,
-                                  validator: _validateEmail,
-                                  keyboardType: TextInputType.emailAddress,
-                                  decoration: InputDecoration(
-                                    labelText: 'Email',
-                                    prefixIcon: const Icon(Icons.email),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                
-                                // Password Field
-                                TextFormField(
-                                  controller: _passwordController,
-                                  validator: _validatePassword,
-                                  obscureText: _obscurePassword,
-                                  decoration: InputDecoration(
-                                    labelText: 'Password',
-                                    prefixIcon: const Icon(Icons.lock),
-                                    suffixIcon: IconButton(
-                                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                      icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                                
-                                // Confirm Password Field (for sign up only)
-                                if (_authMode == AuthMode.signUp) ...[
-                                  const SizedBox(height: 16),
-                                  TextFormField(
-                                    controller: _confirmPasswordController,
-                                    validator: _validateConfirmPassword,
-                                    obscureText: _obscureConfirmPassword,
-                                    decoration: InputDecoration(
-                                      labelText: 'Confirm Password',
-                                      prefixIcon: const Icon(Icons.lock_outline),
-                                      suffixIcon: IconButton(
-                                        onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                                        icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                    
+                                    SizedBox(height: isKeyboardOpen ? 12 : 16),
+                                    
+                                    // Auth Button
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: isKeyboardOpen ? 42 : 50,
+                                      child: ElevatedButton(
+                                        onPressed: _isLoading 
+                                            ? null 
+                                            : (_authMode == AuthMode.signIn 
+                                                ? _signInWithEmailPassword 
+                                                : _signUpWithEmailPassword),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF6B73FF),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        child: _isLoading
+                                            ? SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                                ),
+                                              )
+                                            : Text(
+                                                _authMode == AuthMode.signIn ? 'Sign In' : 'Create Account',
+                                                style: TextStyle(
+                                                  fontSize: isKeyboardOpen ? 14 : 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                                
-                                SizedBox(height: isSmallScreen ? 16 : 20),
-                                
-                                // Forgot Password (for sign in only)
-                                if (_authMode == AuthMode.signIn)
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton(
-                                      onPressed: _resetPassword,
-                                      child: const Text('Forgot Password?'),
-                                    ),
-                                  ),
-                                
-                                SizedBox(height: isSmallScreen ? 16 : 20),
-                                
-                                // Auth Button
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: isSmallScreen ? 45 : 50,
-                                  child: ElevatedButton(
-                                    onPressed: _isLoading 
-                                        ? null 
-                                        : (_authMode == AuthMode.signIn 
-                                            ? _signInWithEmailPassword 
-                                            : _signUpWithEmailPassword),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF6B73FF),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: _isLoading
-                                        ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                            ),
-                                          )
-                                        : Text(
-                                            _authMode == AuthMode.signIn ? 'Sign In' : 'Create Account',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.white,
+                                    
+                                    SizedBox(height: isKeyboardOpen ? 12 : 16),                                    // Divider
+                                    Row(
+                                      children: [
+                                        Expanded(child: Divider(color: Colors.grey.shade300)),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                                          child: Text(
+                                            'OR',
+                                            style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: isKeyboardOpen ? 12 : 14,
                                             ),
                                           ),
-                                  ),
-                                ),
-                                
-                                SizedBox(height: isSmallScreen ? 16 : 20),
-                                
-                                // Divider
-                                Row(
-                                  children: [
-                                    Expanded(child: Divider(color: Colors.grey.shade300)),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      child: Text(
-                                        'OR',
-                                        style: TextStyle(
-                                          color: Colors.grey.shade600,
-                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        Expanded(child: Divider(color: Colors.grey.shade300)),
+                                      ],
+                                    ),
+                                    
+                                    SizedBox(height: isKeyboardOpen ? 12 : 16),
+                                    
+                                    // Google Sign In Button
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: isKeyboardOpen ? 42 : 50,
+                                      child: ElevatedButton.icon(
+                                        onPressed: _isLoading ? null : _signInWithGoogle,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          foregroundColor: const Color(0xFF2C3E50),
+                                          elevation: 2,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                            side: const BorderSide(
+                                              color: Color(0xFFE0E0E0),
+                                              width: 1,
+                                            ),
+                                          ),
+                                        ),
+                                        icon: SvgPicture.asset(
+                                          'assets/images/google_logo.svg',
+                                          width: isKeyboardOpen ? 16 : 20,
+                                          height: isKeyboardOpen ? 16 : 20,
+                                        ),
+                                        label: Text(
+                                          'Continue with Google',
+                                          style: TextStyle(
+                                            fontSize: isKeyboardOpen ? 12 : 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                    Expanded(child: Divider(color: Colors.grey.shade300)),
-                                  ],
-                                ),
-                                
-                                SizedBox(height: isSmallScreen ? 16 : 20),
-                                
-                                // Google Sign In Button
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: isSmallScreen ? 45 : 50,
-                                  child: ElevatedButton.icon(
-                                    onPressed: _isLoading ? null : _signInWithGoogle,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: const Color(0xFF2C3E50),
-                                      elevation: 2,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        side: const BorderSide(
-                                          color: Color(0xFFE0E0E0),
-                                          width: 1,
-                                        ),
+                                    
+                                    if (!isKeyboardOpen) ...[
+                                      SizedBox(height: 16),
+                                      
+                                      // Privacy Note
+                                      Text(
+                                        'By ${_authMode == AuthMode.signIn ? 'signing in' : 'creating an account'}, you agree to our Terms of Service and Privacy Policy',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: const Color(0xFF95A5A6),
+                                              fontSize: 10,
+                                            ),
+                                        textAlign: TextAlign.center,
                                       ),
-                                    ),
-                                    icon: SvgPicture.asset(
-                                      'assets/images/google_logo.svg',
-                                      width: 20,
-                                      height: 20,
-                                    ),
-                                    label: Text(
-                                      'Continue with Google',
-                                      style: TextStyle(
-                                        fontSize: isSmallScreen ? 14 : 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                
-                                SizedBox(height: isSmallScreen ? 16 : 20),
-                                
-                                // Privacy Note
-                                Text(
-                                  'By ${_authMode == AuthMode.signIn ? 'signing in' : 'creating an account'}, you agree to our Terms of Service and Privacy Policy',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: const Color(0xFF95A5A6),
-                                        fontSize: isSmallScreen ? 10 : 11,
-                                      ),
-                                  textAlign: TextAlign.center,
-                                ),
+                                    ] else ...[
+                                      SizedBox(height: 8),
+                                    ],
                               ],
                             ),
                           ),
