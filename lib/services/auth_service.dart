@@ -3,6 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_profile.dart';
 import '../models/subscription_plan.dart';
+import '../utils/encryption_utils.dart';
 
 enum AuthStatus { unauthenticated, authenticated, loading }
 
@@ -43,6 +44,93 @@ class AuthService {
     }
   }
 
+  // Sign up with email and password
+  Future<UserCredential?> signUpWithEmailPassword({
+    required String email,
+    required String password,
+    required String name,
+  }) async {
+    try {
+      // Create user with email and password
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Update display name
+      await userCredential.user?.updateDisplayName(name);
+      
+      // Create user profile with email provider
+      await _createOrUpdateUserProfile(
+        userCredential.user!,
+        providerType: 'email',
+      );
+      
+      return userCredential;
+    } catch (e) {
+      print('Error signing up with email: $e');
+      rethrow;
+    }
+  }
+
+  // Sign in with email and password
+  Future<UserCredential?> signInWithEmailPassword({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      // Update user profile with last login
+      await _createOrUpdateUserProfile(
+        userCredential.user!,
+        providerType: 'email',
+      );
+      
+      return userCredential;
+    } catch (e) {
+      print('Error signing in with email: $e');
+      rethrow;
+    }
+  }
+
+  // Reset password
+  Future<void> resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } catch (e) {
+      print('Error sending password reset email: $e');
+      rethrow;
+    }
+  }
+
+  // Send email verification
+  Future<void> sendEmailVerification() async {
+    try {
+      if (currentUser != null && !currentUser!.emailVerified) {
+        await currentUser!.sendEmailVerification();
+      }
+    } catch (e) {
+      print('Error sending email verification: $e');
+      rethrow;
+    }
+  }
+
+  // Check if email is verified
+  bool get isEmailVerified => currentUser?.emailVerified ?? false;
+
+  // Reload current user (to update email verification status)
+  Future<void> reloadUser() async {
+    try {
+      await currentUser?.reload();
+    } catch (e) {
+      print('Error reloading user: $e');
+    }
+  }
+
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
@@ -66,7 +154,7 @@ class AuthService {
       final userCredential = await _auth.signInWithCredential(credential);
       
       // Create or update user profile
-      await _createOrUpdateUserProfile(userCredential.user!);
+      await _createOrUpdateUserProfile(userCredential.user!, providerType: 'google');
       
       return userCredential;
     } catch (e) {
@@ -76,7 +164,7 @@ class AuthService {
   }
 
   // Create or update user profile in Firestore
-  Future<void> _createOrUpdateUserProfile(User user) async {
+  Future<void> _createOrUpdateUserProfile(User user, {String providerType = 'google'}) async {
     try {
       final userDoc = _firestore.collection('users').doc(user.uid);
       final userData = await userDoc.get();
@@ -92,8 +180,9 @@ class AuthService {
           createdAt: DateTime.now(),
           metadata: {
             'photoURL': user.photoURL,
-            'provider': 'google',
+            'provider': providerType,
             'firstLoginAt': FieldValue.serverTimestamp(),
+            'emailVerified': user.emailVerified,
           },
         );
 
@@ -110,6 +199,7 @@ class AuthService {
         await userDoc.update({
           'lastLoginAt': FieldValue.serverTimestamp(),
           'metadata.photoURL': user.photoURL,
+          'metadata.emailVerified': user.emailVerified,
         });
       }
     } catch (e) {
