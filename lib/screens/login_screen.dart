@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
 import '../services/auth_service.dart';
-import 'user_setup_screen.dart';
 import 'home_screen.dart';
+import 'user_setup_screen.dart';
 
 enum AuthMode { signIn, signUp }
 
@@ -14,7 +15,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> 
+class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
   final _formKey = GlobalKey<FormState>();
@@ -22,12 +23,12 @@ class _LoginScreenState extends State<LoginScreen>
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   AuthMode _authMode = AuthMode.signIn;
-  
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -39,12 +40,12 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    
+
     _fadeAnimation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
     );
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.5),
       end: Offset.zero,
@@ -52,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen>
       parent: _animationController,
       curve: Curves.elasticOut,
     ));
-    
+
     _animationController.forward();
   }
 
@@ -73,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       final userCredential = await _authService.signInWithGoogle();
-      
+
       if (userCredential != null && mounted) {
         await _navigateAfterAuth();
       }
@@ -106,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen>
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-      
+
       if (userCredential != null && mounted) {
         await _navigateAfterAuth();
       }
@@ -140,11 +141,12 @@ class _LoginScreenState extends State<LoginScreen>
         password: _passwordController.text,
         name: _nameController.text.trim(),
       );
-      
+
       if (userCredential != null && mounted) {
         // Send email verification
         await _authService.sendEmailVerification();
-        _showSuccessDialog('Account created successfully! Please check your email for verification.');
+        _showSuccessDialog(
+            'Account created successfully! Please check your email for verification.');
         await _navigateAfterAuth();
       }
     } on FirebaseAuthException catch (e) {
@@ -184,7 +186,7 @@ class _LoginScreenState extends State<LoginScreen>
     // Check if user setup is completed
     final userProfile = await _authService.getCurrentUserProfile();
     final setupCompleted = userProfile?.metadata?['setupCompleted'] ?? false;
-    
+
     if (setupCompleted) {
       // Navigate to home screen
       Navigator.of(context).pushReplacement(
@@ -315,8 +317,9 @@ class _LoginScreenState extends State<LoginScreen>
               final isKeyboardOpen = keyboardHeight > 0;
               final availableHeight = constraints.maxHeight - keyboardHeight;
               final isSmallScreen = availableHeight < 600;
-              final headerHeight = isKeyboardOpen ? 80.0 : (isSmallScreen ? 120.0 : 180.0);
-              
+              final headerHeight =
+                  isKeyboardOpen ? 80.0 : (isSmallScreen ? 150.0 : 220.0);
+
               return FadeTransition(
                 opacity: _fadeAnimation,
                 child: Column(
@@ -328,14 +331,19 @@ class _LoginScreenState extends State<LoginScreen>
                         child: SlideTransition(
                           position: _slideAnimation,
                           child: Padding(
-                            padding: EdgeInsets.all(isKeyboardOpen ? 12.0 : 24.0),
+                            padding:
+                                EdgeInsets.all(isKeyboardOpen ? 12.0 : 24.0),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 // App Logo/Icon
                                 Container(
-                                  width: isKeyboardOpen ? 50 : (isSmallScreen ? 60 : 80),
-                                  height: isKeyboardOpen ? 50 : (isSmallScreen ? 60 : 80),
+                                  width: isKeyboardOpen
+                                      ? 50
+                                      : (isSmallScreen ? 60 : 80),
+                                  height: isKeyboardOpen
+                                      ? 50
+                                      : (isSmallScreen ? 60 : 80),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(50),
@@ -349,13 +357,15 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                   child: Icon(
                                     Icons.school,
-                                    size: isKeyboardOpen ? 25 : (isSmallScreen ? 30 : 40),
+                                    size: isKeyboardOpen
+                                        ? 25
+                                        : (isSmallScreen ? 30 : 40),
                                     color: const Color(0xFF6B73FF),
                                   ),
                                 ),
                                 if (!isKeyboardOpen) ...[
-                                  SizedBox(height: isSmallScreen ? 12 : 16),
-                                  
+                                   SizedBox(height: isSmallScreen ? 12 : 16),
+
                                   // App Title
                                   Text(
                                     'Little Learners Academy',
@@ -375,7 +385,7 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                       ),
-                    
+
                     // Login Section - Takes remaining space
                     Expanded(
                       child: Container(
@@ -406,7 +416,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     SizedBox(height: isKeyboardOpen ? 8 : 16),
-                                    
+
                                     // Auth Mode Toggle
                                     Container(
                                       decoration: BoxDecoration(
@@ -417,26 +427,34 @@ class _LoginScreenState extends State<LoginScreen>
                                         children: [
                                           Expanded(
                                             child: GestureDetector(
-                                              onTap: () => setState(() => _authMode = AuthMode.signIn),
+                                              onTap: () => setState(() =>
+                                                  _authMode = AuthMode.signIn),
                                               child: Container(
                                                 padding: EdgeInsets.symmetric(
-                                                  vertical: isKeyboardOpen ? 8 : 12,
+                                                  vertical:
+                                                      isKeyboardOpen ? 8 : 12,
                                                 ),
                                                 decoration: BoxDecoration(
-                                                  color: _authMode == AuthMode.signIn 
-                                                      ? const Color(0xFF6B73FF) 
+                                                  color: _authMode ==
+                                                          AuthMode.signIn
+                                                      ? const Color(0xFF6B73FF)
                                                       : Colors.transparent,
-                                                  borderRadius: BorderRadius.circular(12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
                                                 ),
                                                 child: Text(
                                                   'Sign In',
                                                   textAlign: TextAlign.center,
                                                   style: TextStyle(
-                                                    color: _authMode == AuthMode.signIn 
-                                                        ? Colors.white 
-                                                        : const Color(0xFF7F8C8D),
+                                                    color: _authMode ==
+                                                            AuthMode.signIn
+                                                        ? Colors.white
+                                                        : const Color(
+                                                            0xFF7F8C8D),
                                                     fontWeight: FontWeight.w600,
-                                                    fontSize: isKeyboardOpen ? 14 : 16,
+                                                    fontSize: isKeyboardOpen
+                                                        ? 14
+                                                        : 16,
                                                   ),
                                                 ),
                                               ),
@@ -444,26 +462,34 @@ class _LoginScreenState extends State<LoginScreen>
                                           ),
                                           Expanded(
                                             child: GestureDetector(
-                                              onTap: () => setState(() => _authMode = AuthMode.signUp),
+                                              onTap: () => setState(() =>
+                                                  _authMode = AuthMode.signUp),
                                               child: Container(
                                                 padding: EdgeInsets.symmetric(
-                                                  vertical: isKeyboardOpen ? 8 : 12,
+                                                  vertical:
+                                                      isKeyboardOpen ? 8 : 12,
                                                 ),
                                                 decoration: BoxDecoration(
-                                                  color: _authMode == AuthMode.signUp 
-                                                      ? const Color(0xFF6B73FF) 
+                                                  color: _authMode ==
+                                                          AuthMode.signUp
+                                                      ? const Color(0xFF6B73FF)
                                                       : Colors.transparent,
-                                                  borderRadius: BorderRadius.circular(12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
                                                 ),
                                                 child: Text(
                                                   'Sign Up',
                                                   textAlign: TextAlign.center,
                                                   style: TextStyle(
-                                                    color: _authMode == AuthMode.signUp 
-                                                        ? Colors.white 
-                                                        : const Color(0xFF7F8C8D),
+                                                    color: _authMode ==
+                                                            AuthMode.signUp
+                                                        ? Colors.white
+                                                        : const Color(
+                                                            0xFF7F8C8D),
                                                     fontWeight: FontWeight.w600,
-                                                    fontSize: isKeyboardOpen ? 14 : 16,
+                                                    fontSize: isKeyboardOpen
+                                                        ? 14
+                                                        : 16,
                                                   ),
                                                 ),
                                               ),
@@ -472,12 +498,14 @@ class _LoginScreenState extends State<LoginScreen>
                                         ],
                                       ),
                                     ),
-                                    
+
                                     SizedBox(height: isKeyboardOpen ? 12 : 20),
-                                    
+
                                     // Title
                                     Text(
-                                      _authMode == AuthMode.signIn ? 'Welcome Back!' : 'Create Account',
+                                      _authMode == AuthMode.signIn
+                                          ? 'Welcome Back!'
+                                          : 'Create Account',
                                       style: Theme.of(context)
                                           .textTheme
                                           .headlineSmall
@@ -490,7 +518,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     if (!isKeyboardOpen) ...[
                                       SizedBox(height: 6),
                                       Text(
-                                        _authMode == AuthMode.signIn 
+                                        _authMode == AuthMode.signIn
                                             ? 'Sign in to continue your learning journey'
                                             : 'Join us and start your learning adventure',
                                         style: Theme.of(context)
@@ -503,7 +531,8 @@ class _LoginScreenState extends State<LoginScreen>
                                         textAlign: TextAlign.center,
                                       ),
                                     ],
-                                    SizedBox(height: isKeyboardOpen ? 12 : 20),                                    // Name Field (for sign up only)
+                                    SizedBox(height: isKeyboardOpen ? 12 : 20),
+                                    // Name Field (for sign up only)
                                     if (_authMode == AuthMode.signUp) ...[
                                       TextFormField(
                                         controller: _nameController,
@@ -512,7 +541,8 @@ class _LoginScreenState extends State<LoginScreen>
                                           labelText: 'Full Name',
                                           prefixIcon: const Icon(Icons.person),
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
                                           ),
                                           contentPadding: EdgeInsets.symmetric(
                                             horizontal: 16,
@@ -520,9 +550,10 @@ class _LoginScreenState extends State<LoginScreen>
                                           ),
                                         ),
                                       ),
-                                      SizedBox(height: isKeyboardOpen ? 12 : 16),
+                                      SizedBox(
+                                          height: isKeyboardOpen ? 12 : 16),
                                     ],
-                                    
+
                                     // Email Field
                                     TextFormField(
                                       controller: _emailController,
@@ -532,7 +563,8 @@ class _LoginScreenState extends State<LoginScreen>
                                         labelText: 'Email',
                                         prefixIcon: const Icon(Icons.email),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                         contentPadding: EdgeInsets.symmetric(
                                           horizontal: 16,
@@ -541,7 +573,7 @@ class _LoginScreenState extends State<LoginScreen>
                                       ),
                                     ),
                                     SizedBox(height: isKeyboardOpen ? 12 : 16),
-                                    
+
                                     // Password Field
                                     TextFormField(
                                       controller: _passwordController,
@@ -551,11 +583,16 @@ class _LoginScreenState extends State<LoginScreen>
                                         labelText: 'Password',
                                         prefixIcon: const Icon(Icons.lock),
                                         suffixIcon: IconButton(
-                                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                          icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                                          onPressed: () => setState(() =>
+                                              _obscurePassword =
+                                                  !_obscurePassword),
+                                          icon: Icon(_obscurePassword
+                                              ? Icons.visibility
+                                              : Icons.visibility_off),
                                         ),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                         contentPadding: EdgeInsets.symmetric(
                                           horizontal: 16,
@@ -563,23 +600,30 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                       ),
                                     ),
-                                    
+
                                     // Confirm Password Field (for sign up only)
                                     if (_authMode == AuthMode.signUp) ...[
-                                      SizedBox(height: isKeyboardOpen ? 12 : 16),
+                                      SizedBox(
+                                          height: isKeyboardOpen ? 12 : 16),
                                       TextFormField(
                                         controller: _confirmPasswordController,
                                         validator: _validateConfirmPassword,
                                         obscureText: _obscureConfirmPassword,
                                         decoration: InputDecoration(
                                           labelText: 'Confirm Password',
-                                          prefixIcon: const Icon(Icons.lock_outline),
+                                          prefixIcon:
+                                              const Icon(Icons.lock_outline),
                                           suffixIcon: IconButton(
-                                            onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                                            icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                                            onPressed: () => setState(() =>
+                                                _obscureConfirmPassword =
+                                                    !_obscureConfirmPassword),
+                                            icon: Icon(_obscureConfirmPassword
+                                                ? Icons.visibility
+                                                : Icons.visibility_off),
                                           ),
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
                                           ),
                                           contentPadding: EdgeInsets.symmetric(
                                             horizontal: 16,
@@ -588,11 +632,12 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                       ),
                                     ],
-                                    
+
                                     SizedBox(height: isKeyboardOpen ? 12 : 16),
-                                    
+
                                     // Forgot Password (for sign in only)
-                                    if (_authMode == AuthMode.signIn && !isKeyboardOpen)
+                                    if (_authMode == AuthMode.signIn &&
+                                        !isKeyboardOpen)
                                       Align(
                                         alignment: Alignment.centerRight,
                                         child: TextButton(
@@ -600,80 +645,98 @@ class _LoginScreenState extends State<LoginScreen>
                                           child: const Text('Forgot Password?'),
                                         ),
                                       ),
-                                    
+
                                     SizedBox(height: isKeyboardOpen ? 12 : 16),
-                                    
+
                                     // Auth Button
                                     SizedBox(
                                       width: double.infinity,
                                       height: isKeyboardOpen ? 42 : 50,
                                       child: ElevatedButton(
-                                        onPressed: _isLoading 
-                                            ? null 
-                                            : (_authMode == AuthMode.signIn 
-                                                ? _signInWithEmailPassword 
+                                        onPressed: _isLoading
+                                            ? null
+                                            : (_authMode == AuthMode.signIn
+                                                ? _signInWithEmailPassword
                                                 : _signUpWithEmailPassword),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF6B73FF),
+                                          backgroundColor:
+                                              const Color(0xFF6B73FF),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
                                           ),
                                         ),
                                         child: _isLoading
                                             ? SizedBox(
                                                 width: 18,
                                                 height: 18,
-                                                child: CircularProgressIndicator(
+                                                child:
+                                                    CircularProgressIndicator(
                                                   strokeWidth: 2,
-                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                          Color>(Colors.white),
                                                 ),
                                               )
                                             : Text(
-                                                _authMode == AuthMode.signIn ? 'Sign In' : 'Create Account',
+                                                _authMode == AuthMode.signIn
+                                                    ? 'Sign In'
+                                                    : 'Create Account',
                                                 style: TextStyle(
-                                                  fontSize: isKeyboardOpen ? 14 : 16,
+                                                  fontSize:
+                                                      isKeyboardOpen ? 14 : 16,
                                                   fontWeight: FontWeight.w600,
                                                   color: Colors.white,
                                                 ),
                                               ),
                                       ),
                                     ),
-                                    
+
                                     SizedBox(height: isKeyboardOpen ? 12 : 16),
-                                    
+
                                     // Divider
                                     Row(
                                       children: [
-                                        Expanded(child: Divider(color: Colors.grey.shade300)),
+                                        Expanded(
+                                            child: Divider(
+                                                color: Colors.grey.shade300)),
                                         Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 16),
                                           child: Text(
                                             'OR',
                                             style: TextStyle(
                                               color: Colors.grey.shade600,
                                               fontWeight: FontWeight.w500,
-                                              fontSize: isKeyboardOpen ? 12 : 14,
+                                              fontSize:
+                                                  isKeyboardOpen ? 12 : 14,
                                             ),
                                           ),
                                         ),
-                                        Expanded(child: Divider(color: Colors.grey.shade300)),
+                                        Expanded(
+                                            child: Divider(
+                                                color: Colors.grey.shade300)),
                                       ],
                                     ),
-                                    
+
                                     SizedBox(height: isKeyboardOpen ? 12 : 16),
-                                    
+
                                     // Google Sign In Button
                                     SizedBox(
                                       width: double.infinity,
                                       height: isKeyboardOpen ? 42 : 50,
                                       child: ElevatedButton.icon(
-                                        onPressed: _isLoading ? null : _signInWithGoogle,
+                                        onPressed: _isLoading
+                                            ? null
+                                            : _signInWithGoogle,
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.white,
-                                          foregroundColor: const Color(0xFF2C3E50),
+                                          foregroundColor:
+                                              const Color(0xFF2C3E50),
                                           elevation: 2,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
                                             side: const BorderSide(
                                               color: Color(0xFFE0E0E0),
                                               width: 1,
@@ -694,10 +757,10 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                       ),
                                     ),
-                                    
+
                                     if (!isKeyboardOpen) ...[
                                       SizedBox(height: 16),
-                                      
+
                                       // Privacy Note
                                       Text(
                                         'By ${_authMode == AuthMode.signIn ? 'signing in' : 'creating an account'}, you agree to our Terms of Service and Privacy Policy',
@@ -711,31 +774,11 @@ class _LoginScreenState extends State<LoginScreen>
                                         textAlign: TextAlign.center,
                                       ),
                                     ],
-                                  ),
+                                  ],
                                 ),
                               ),
-                          ),
-                        ),
-                      ),
-                      AnimatedOpacity(
-                        opacity: isKeyboardOpen ? 0 : 1,
-                        duration: const Duration(milliseconds: 300),
-                        child: Column(
-                          children: [
-                            SizedBox(height: 12),
-                            // Privacy Note
-                            Text(
-                              'By ${_authMode == AuthMode.signIn ? 'signing in' : 'creating an account'}, you agree to our Terms of Service and Privacy Policy',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: const Color(0xFF95A5A6),
-                                    fontSize: 10,
-                                  ),
-                              textAlign: TextAlign.center,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
