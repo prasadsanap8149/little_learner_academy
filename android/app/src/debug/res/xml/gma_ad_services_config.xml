@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gma:ad-services-config xmlns:gma="https://www.gstatic.com/hostedservice/gma_android_sdk">
+    <!-- Test App ID for debug builds -->
+    <gma:init>
+        <gma:service gma:app-id="ca-app-pub-3940256099942544~3347511713"/>
+    </gma:init>
+</gma:ad-services-config>

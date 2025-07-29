@@ -187,7 +187,7 @@ class RazorpayPlan {
     required this.description,
     required this.amount,
     required this.currency,
-    required this.period,
+    required this.period, int? interval,
   });
 
   String get formattedPrice => '₹${(amount / 100).toStringAsFixed(2)}';

@@ -15,10 +15,6 @@ class FirebaseService {
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  Future<void> initialize() async {
-    await Firebase.initializeApp();
-  }
-
   Future<UserCredential?> signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();

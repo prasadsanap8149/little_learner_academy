@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:little_learners_academy/screens/settings_screen.dart';
 import 'package:provider/provider.dart';
 import '../services/game_provider.dart';
 import '../models/game_level.dart';
@@ -107,6 +108,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         IconButton(
                           onPressed: () {
                             // TODO: Settings screen
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const SettingsScreen(),
+                              ),
+                            );
                           },
                           icon: const Icon(
                             Icons.settings,
