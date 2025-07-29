@@ -3,6 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_profile.dart';
 import '../models/subscription_plan.dart';
+import '../utils/encryption_utils.dart';
 
 enum AuthStatus { unauthenticated, authenticated, loading }
 
