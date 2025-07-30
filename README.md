@@ -55,6 +55,7 @@ Available on:
 - Free tier with limited features
 
 ## Development
+```keytool -list -v -alias androiddebugkey -keystore C:\Users\PrasadSanap\.android\debug.keystore -storepass android -keypass android```
 
 ### Prerequisites
 
