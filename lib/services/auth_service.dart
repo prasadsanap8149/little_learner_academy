@@ -148,45 +148,19 @@ class AuthService {
         return null;
       }
 
-      // For Firebase authentication, we need to get the OAuth credentials
-      // Using the authorizationClient to get tokens for Firebase
-      const scopes = ['openid', 'email', 'profile'];
-      final GoogleSignInClientAuthorization? authorization = 
-          await googleUser.authorizationClient.authorizationForScopes(scopes);
-      
-      if (authorization == null) {
-        print('Failed to get Google authorization');
+      // Get the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Check if we have valid tokens
+      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+        print('Failed to get Google authentication tokens');
         return null;
       }
 
-      // Get authorization headers which contain the access token
-      final Map<String, String>? headers = 
-          await googleUser.authorizationClient.authorizationHeaders(scopes);
-      
-      if (headers == null || !headers.containsKey('Authorization')) {
-        print('Failed to get authorization headers');
-        return null;
-      }
-
-      // Extract the access token from the Authorization header
-      final authHeader = headers['Authorization']!;
-      final accessToken = authHeader.startsWith('Bearer ') 
-          ? authHeader.substring(7) 
-          : authHeader;
-
-      // For Firebase, we also need the ID token
-      // Try to get it from the authorization object
-      final idToken = authorization.idToken;
-      
-      if (idToken == null) {
-        print('Failed to get ID token');
-        return null;
-      }
-
-      // Create a new credential for Firebase
+      // Create a new credential
       final credential = GoogleAuthProvider.credential(
-        accessToken: accessToken,
-        idToken: idToken,
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
 
       // Sign in to Firebase with the Google credential
@@ -490,8 +464,8 @@ class AuthService {
   Future<void> signOut() async {
     try {
       await Future.wait([
-        GoogleSignIn.instance.disconnect().catchError((e) {
-          print('Google Sign In disconnect warning: $e');
+        _googleSignIn.signOut().catchError((e) {
+          print('Google Sign In sign out warning: $e');
           return null;
         }),
         _auth.signOut(),
