@@ -134,17 +134,29 @@ class AuthService {
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Sign out first to ensure account picker is shown
-      await _googleSignIn.signOut();
+      // Attempt to sign out first to ensure clean state
+      try {
+        await _googleSignIn.signOut();
+      } catch (e) {
+        print('Sign out warning: $e');
+        // Continue even if sign out fails
+      }
       
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         // User cancelled the sign-in
+        print('Google Sign In cancelled by user');
         return null;
       }
 
       final GoogleSignInAuthentication googleAuth = 
           await googleUser.authentication;
+
+      // Check if we have valid tokens
+      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+        print('Failed to get Google authentication tokens');
+        return null;
+      }
 
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -154,12 +166,52 @@ class AuthService {
       final userCredential = await _auth.signInWithCredential(credential);
       
       // Create or update user profile
-      await _createOrUpdateUserProfile(userCredential.user!, providerType: 'google');
+      if (userCredential.user != null) {
+        await _createOrUpdateUserProfile(userCredential.user!, providerType: 'google');
+      }
       
       return userCredential;
+    } on FirebaseAuthException catch (e) {
+      print('Firebase Auth Error in Google Sign In: ${e.code} - ${e.message}');
+      return null;
+    } on TypeError catch (e) {
+      print('Type Error in Google Sign In (possible PigeonUserDetails issue): $e');
+      // This is likely the PigeonUserDetails casting error
+      // Try again with a fresh GoogleSignIn instance
+      try {
+        final freshGoogleSignIn = GoogleSignIn(
+          scopes: ['email', 'profile'],
+        );
+        final GoogleSignInAccount? googleUser = await freshGoogleSignIn.signIn();
+        if (googleUser == null) return null;
+
+        final GoogleSignInAuthentication googleAuth = 
+            await googleUser.authentication;
+
+        if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+          return null;
+        }
+
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        final userCredential = await _auth.signInWithCredential(credential);
+        
+        if (userCredential.user != null) {
+          await _createOrUpdateUserProfile(userCredential.user!, providerType: 'google');
+        }
+        
+        return userCredential;
+      } catch (retryError) {
+        print('Retry also failed: $retryError');
+        return null;
+      }
     } catch (e) {
-      print('Error signing in with Google: $e');
-      rethrow;
+      print('Error signing in with Google Auth Service: $e');
+      print('Error type: ${e.runtimeType}');
+      return null;
     }
   }
 
@@ -442,11 +494,20 @@ class AuthService {
   Future<void> signOut() async {
     try {
       await Future.wait([
-        _googleSignIn.signOut(),
+        _googleSignIn.signOut().catchError((e) {
+          print('Google Sign In sign out warning: $e');
+          return null;
+        }),
         _auth.signOut(),
       ]);
     } catch (e) {
       print('Error signing out: $e');
+      // Try to sign out from Firebase Auth at least
+      try {
+        await _auth.signOut();
+      } catch (authError) {
+        print('Firebase Auth sign out error: $authError');
+      }
       rethrow;
     }
   }
