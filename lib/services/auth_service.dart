@@ -13,9 +13,6 @@ class AuthService {
   AuthService._internal();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
-  );
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   User? get currentUser => _auth.currentUser;
@@ -134,23 +131,25 @@ class AuthService {
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Attempt to sign out first to ensure clean state
-      try {
-        await _googleSignIn.signOut();
-      } catch (e) {
-        print('Sign out warning: $e');
-        // Continue even if sign out fails
-      }
+      // Initialize Google Sign In instance
+      final googleSignIn = GoogleSignIn.instance;
       
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      // Check if authentication is supported on this platform
+      if (!googleSignIn.supportsAuthenticate()) {
+        print('Google Sign In not supported on this platform');
+        return null;
+      }
+
+      // Attempt to authenticate with Google
+      final GoogleSignInAccount? googleUser = await googleSignIn.authenticate();
       if (googleUser == null) {
         // User cancelled the sign-in
         print('Google Sign In cancelled by user');
         return null;
       }
 
-      final GoogleSignInAuthentication googleAuth = 
-          await googleUser.authentication;
+      // Get the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
       // Check if we have valid tokens
       if (googleAuth.accessToken == null || googleAuth.idToken == null) {
@@ -158,11 +157,13 @@ class AuthService {
         return null;
       }
 
+      // Create a new credential
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
+      // Sign in to Firebase with the Google credential
       final userCredential = await _auth.signInWithCredential(credential);
       
       // Create or update user profile
@@ -174,40 +175,9 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       print('Firebase Auth Error in Google Sign In: ${e.code} - ${e.message}');
       return null;
-    } on TypeError catch (e) {
-      print('Type Error in Google Sign In (possible PigeonUserDetails issue): $e');
-      // This is likely the PigeonUserDetails casting error
-      // Try again with a fresh GoogleSignIn instance
-      try {
-        final freshGoogleSignIn = GoogleSignIn(
-          scopes: ['email', 'profile'],
-        );
-        final GoogleSignInAccount? googleUser = await freshGoogleSignIn.signIn();
-        if (googleUser == null) return null;
-
-        final GoogleSignInAuthentication googleAuth = 
-            await googleUser.authentication;
-
-        if (googleAuth.accessToken == null || googleAuth.idToken == null) {
-          return null;
-        }
-
-        final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-
-        final userCredential = await _auth.signInWithCredential(credential);
-        
-        if (userCredential.user != null) {
-          await _createOrUpdateUserProfile(userCredential.user!, providerType: 'google');
-        }
-        
-        return userCredential;
-      } catch (retryError) {
-        print('Retry also failed: $retryError');
-        return null;
-      }
+    } on GoogleSignInException catch (e) {
+      print('Google Sign In Error: ${e.code} - ${e.description}');
+      return null;
     } catch (e) {
       print('Error signing in with Google Auth Service: $e');
       print('Error type: ${e.runtimeType}');
@@ -494,8 +464,8 @@ class AuthService {
   Future<void> signOut() async {
     try {
       await Future.wait([
-        _googleSignIn.signOut().catchError((e) {
-          print('Google Sign In sign out warning: $e');
+        GoogleSignIn.instance.disconnect().catchError((e) {
+          print('Google Sign In disconnect warning: $e');
           return null;
         }),
         _auth.signOut(),
