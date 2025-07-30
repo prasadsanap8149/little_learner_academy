@@ -54,10 +54,19 @@ dependencies:
   # SVG Support
   flutter_svg: ^2.0.10
 
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  #adaptive_icon_background: "#4CAF50"
+  #adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
+
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.4
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  plugin_platform_interface: ^2.0.0
 
 flutter:
   uses-material-design: true
