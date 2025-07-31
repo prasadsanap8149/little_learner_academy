@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_profile.dart';
 
 enum AuthStatus { unauthenticated, authenticated, loading }
@@ -12,12 +11,6 @@ class AuthService {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      'email',
-      'profile',
-    ],
-  );
 
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
@@ -135,28 +128,15 @@ class AuthService {
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Initialize Google Sign In
-      await _googleSignIn.initialize();
+      // Create a GoogleAuthProvider
+      final GoogleAuthProvider googleProvider = GoogleAuthProvider();
       
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      // Add scopes
+      googleProvider.addScope('email');
+      googleProvider.addScope('profile');
       
-      if (googleUser == null) {
-        // User cancelled the sign-in
-        return null;
-      }
-
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      // Create a new credential
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Sign in to Firebase with the Google credential
-      final userCredential = await _auth.signInWithCredential(credential);
+      // Sign in with the provider
+      final userCredential = await _auth.signInWithProvider(googleProvider);
       
       // Create or update user profile
       if (userCredential.user != null) {
@@ -492,11 +472,6 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     try {
-      // Sign out from Google if signed in
-      if (await _googleSignIn.isSignedIn()) {
-        await _googleSignIn.signOut();
-      }
-      
       // Sign out from Firebase Auth
       await _auth.signOut();
     } catch (e) {
