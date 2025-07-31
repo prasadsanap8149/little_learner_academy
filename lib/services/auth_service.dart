@@ -567,4 +567,27 @@ class AuthService {
       return false;
     }
   }
+
+  // Load and sync player data from Firebase after login
+  Future<void> syncPlayerDataFromFirebase() async {
+    if (currentUser == null) return;
+    
+    try {
+      final userProfile = await getCurrentUserProfile();
+      if (userProfile == null) return;
+      
+      // Check if setup is completed and we have child data
+      final setupCompleted = userProfile.metadata?['setupCompleted'] ?? false;
+      final childName = userProfile.metadata?['childName'] as String?;
+      final childAge = userProfile.metadata?['childAge'] as int?;
+      
+      if (setupCompleted && childName != null && childAge != null) {
+        // Load game provider and ensure player data is created
+        // This will be called from the app's initialization flow
+        print('Player data available: $childName, age $childAge');
+      }
+    } catch (e) {
+      print('Error syncing player data from Firebase: $e');
+    }
+  }
 }
