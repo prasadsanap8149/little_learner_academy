@@ -183,17 +183,23 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _navigateAfterAuth() async {
-    // Check if user setup is completed
-    final userProfile = await _authService.getCurrentUserProfile();
-    final setupCompleted = userProfile?.metadata?['setupCompleted'] ?? false;
+    try {
+      // Check if user setup is completed using the improved method
+      final setupCompleted = await _authService.isUserSetupCompleted();
 
-    if (setupCompleted) {
-      // Navigate to home screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-    } else {
-      // Navigate to user setup screen
+      if (setupCompleted) {
+        // Navigate to home screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      } else {
+        // Navigate to user setup screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const UserSetupScreen()),
+        );
+      }
+    } catch (e) {
+      // Fallback to setup screen if there's an error
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const UserSetupScreen()),
       );
