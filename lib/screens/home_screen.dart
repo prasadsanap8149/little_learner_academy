@@ -22,6 +22,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    
+    // Ensure player data is loaded from Firebase if needed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final gameProvider = Provider.of<GameProvider>(context, listen: false);
+      gameProvider.loadPlayerFromFirebase();
+    });
   }
 
   @override
