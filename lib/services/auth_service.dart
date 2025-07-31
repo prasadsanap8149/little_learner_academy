@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_profile.dart';
 
 enum AuthStatus { unauthenticated, authenticated, loading }
@@ -11,6 +12,12 @@ class AuthService {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'email',
+      'profile',
+    ],
+  );
 
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
@@ -128,15 +135,28 @@ class AuthService {
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Simple approach: Use Firebase Auth's GoogleAuthProvider directly
-      // This works across platforms with Firebase handling the platform differences
-      final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-      googleProvider.addScope('email');
-      googleProvider.addScope('profile');
+      // Initialize Google Sign In
+      await _googleSignIn.initialize();
       
-      // Use the most compatible method - signInWithProvider
-      // Firebase will handle the platform-specific implementation
-      final userCredential = await _auth.signInWithProvider(googleProvider);
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        // User cancelled the sign-in
+        return null;
+      }
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase with the Google credential
+      final userCredential = await _auth.signInWithCredential(credential);
       
       // Create or update user profile
       if (userCredential.user != null) {
@@ -146,11 +166,11 @@ class AuthService {
       return userCredential;
     } on FirebaseAuthException catch (e) {
       print('Firebase Auth Error in Google Sign In: ${e.code} - ${e.message}');
-      return null;
+      rethrow;
     } catch (e) {
-      print('Error signing in with Google Auth Service: $e');
+      print('Error signing in with Google: $e');
       print('Error type: ${e.runtimeType}');
-      return null;
+      rethrow;
     }
   }
 
@@ -186,11 +206,20 @@ class AuthService {
         await _createPlayerProgress(user.uid);
         
       } else {
-        // Update existing user profile
+        // Update existing user profile with proper metadata handling
+        final currentData = userData.data() as Map<String, dynamic>;
+        final currentMetadata = currentData['metadata'] as Map<String, dynamic>? ?? {};
+        
+        // Update metadata with new values
+        final updatedMetadata = {
+          ...currentMetadata,
+          'photoURL': user.photoURL,
+          'emailVerified': user.emailVerified,
+        };
+
         await userDoc.update({
           'lastLoginAt': FieldValue.serverTimestamp(),
-          'metadata.photoURL': user.photoURL,
-          'metadata.emailVerified': user.emailVerified,
+          'metadata': updatedMetadata,
         });
       }
     } catch (e) {
@@ -227,14 +256,9 @@ class AuthService {
   }
 
   // Create player progress document
-  Future<void> _createPlayerProgress(String userId) async {
+  Future<void> _createPlayerProgress(String userId, {String? childName, int? childAge}) async {
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('progress')
-          .doc('player_data')
-          .set({
+      final progressData = {
         'totalScore': 0,
         'levelsCompleted': 0,
         'achievements': [],
@@ -244,7 +268,22 @@ class AuthService {
         'favoriteSubjects': [],
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      // Add child details if provided
+      if (childName != null) {
+        progressData['playerName'] = childName;
+      }
+      if (childAge != null) {
+        progressData['playerAge'] = childAge;
+      }
+
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('progress')
+          .doc('player_data')
+          .set(progressData);
     } catch (e) {
       print('Error creating player progress: $e');
       rethrow;
@@ -263,26 +302,47 @@ class AuthService {
     try {
       final userDoc = _firestore.collection('users').doc(currentUser!.uid);
       
+      // First, get the current document to ensure it exists
+      final currentData = await userDoc.get();
+      if (!currentData.exists) {
+        throw Exception('User profile not found. Please try signing in again.');
+      }
+
+      // Prepare metadata update
+      final currentMetadata = currentData.data()?['metadata'] as Map<String, dynamic>? ?? {};
+      final updatedMetadata = {
+        ...currentMetadata,
+        'childName': childName,
+        'childAge': childAge,
+        'parentName': parentName,
+        'setupCompleted': true,
+      };
+
+      // Update user profile
       await userDoc.update({
-        'metadata.childName': childName,
-        'metadata.childAge': childAge,
-        'metadata.parentName': parentName,
-        'metadata.setupCompleted': true,
         'role': (role ?? UserRole.student).toString().split('.').last,
+        'metadata': updatedMetadata,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Update player progress with child details
-      await _firestore
+      // Update or create player progress with child details
+      final progressRef = _firestore
           .collection('users')
           .doc(currentUser!.uid)
           .collection('progress')
-          .doc('player_data')
-          .update({
-        'playerName': childName,
-        'playerAge': childAge,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+          .doc('player_data');
+      
+      final progressData = await progressRef.get();
+      if (progressData.exists) {
+        await progressRef.update({
+          'playerName': childName,
+          'playerAge': childAge,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Create player progress if it doesn't exist
+        await _createPlayerProgress(currentUser!.uid, childName: childName, childAge: childAge);
+      }
 
     } catch (e) {
       print('Error completing user setup: $e');
@@ -432,8 +492,12 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     try {
-      // Simple approach: Just sign out from Firebase Auth
-      // Firebase will handle any connected providers
+      // Sign out from Google if signed in
+      if (await _googleSignIn.isSignedIn()) {
+        await _googleSignIn.signOut();
+      }
+      
+      // Sign out from Firebase Auth
       await _auth.signOut();
     } catch (e) {
       print('Error signing out: $e');
@@ -506,6 +570,26 @@ class AuthService {
     } catch (e) {
       print('Error deleting user data: $e');
       rethrow;
+    }
+  }
+
+  // Check if user setup is completed
+  Future<bool> isUserSetupCompleted() async {
+    if (currentUser == null) return false;
+    
+    try {
+      final userProfile = await getCurrentUserProfile();
+      if (userProfile == null) return false;
+      
+      final setupCompleted = userProfile.metadata?['setupCompleted'] ?? false;
+      final hasChildName = userProfile.metadata?['childName'] != null && 
+                          (userProfile.metadata!['childName'] as String).isNotEmpty;
+      final hasChildAge = userProfile.metadata?['childAge'] != null;
+      
+      return setupCompleted && hasChildName && hasChildAge;
+    } catch (e) {
+      print('Error checking setup completion: $e');
+      return false;
     }
   }
 }
