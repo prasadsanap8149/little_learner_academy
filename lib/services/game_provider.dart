@@ -19,6 +19,12 @@ class GameProvider extends ChangeNotifier {
   
   Future<void> _initialize() async {
     await _gameService.initialize();
+    
+    // If user is authenticated, try to load from Firebase
+    if (_authService.isAuthenticated) {
+      await loadPlayerFromFirebase();
+    }
+    
     _isLoading = false;
     notifyListeners();
   }
@@ -139,5 +145,45 @@ class GameProvider extends ChangeNotifier {
       }
     }
   }
+
+  // Load player data from Firebase if authenticated user has completed setup
+  Future<void> loadPlayerFromFirebase() async {
+    if (!_authService.isAuthenticated) return;
+    
+    try {
+      final userProfile = await _authService.getCurrentUserProfile();
+      if (userProfile == null) return;
+      
+      final setupCompleted = userProfile.metadata?['setupCompleted'] ?? false;
+      final childName = userProfile.metadata?['childName'] as String?;
+      final childAge = userProfile.metadata?['childAge'] as int?;
+      
+      if (setupCompleted && childName != null && childAge != null) {
+        // First try to load existing progress from Firebase
+        await _gameService.loadProgressFromFirebase();
+        
+        // If no progress exists, create new player
+        if (_gameService.currentPlayer == null) {
+          await createPlayer(childName, childAge);
+          print('New player created from Firebase profile: $childName, age $childAge');
+        } else {
+          print('Player progress loaded from Firebase: ${_gameService.currentPlayer!.playerName}');
+        }
+      }
+    } catch (e) {
+      print('Error loading player from Firebase: $e');
+    }
+  }
+
+  // Manual sync method for UI
+  Future<void> syncToFirebase() async {
+    if (_gameService.canSyncToFirebase) {
+      await _gameService.syncProgressToFirebase();
+      print('Progress manually synced to Firebase');
+    }
+  }
+
+  // Check if Firebase sync is available
+  bool get canSyncToFirebase => _gameService.canSyncToFirebase;
 
 }
