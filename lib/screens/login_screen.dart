@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
+import '../services/game_provider.dart';
 import 'home_screen.dart';
 import 'user_setup_screen.dart';
 
@@ -188,6 +190,10 @@ class _LoginScreenState extends State<LoginScreen>
       final setupCompleted = await _authService.isUserSetupCompleted();
 
       if (setupCompleted) {
+        // Load player data from Firebase if needed
+        final gameProvider = Provider.of<GameProvider>(context, listen: false);
+        await gameProvider.loadPlayerFromFirebase();
+        
         // Navigate to home screen
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const HomeScreen()),
