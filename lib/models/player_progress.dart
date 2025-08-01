@@ -228,5 +228,22 @@ class PlayerProgress {
     );
   }
 
-  get completedLevels => null;
+  /// Returns a list of all completed level IDs across all categories
+  List<String> get completedLevels {
+    final completedLevelIds = <String>[];
+    for (final categoryProgress in categories.values) {
+      for (final levelProgress in categoryProgress.levels.values) {
+        if (levelProgress.isCompleted) {
+          completedLevelIds.add(levelProgress.levelId);
+        }
+      }
+    }
+    return completedLevelIds;
+  }
+
+  /// Returns the total number of completed levels
+  int get completedLevelsCount => completedLevels.length;
+
+  /// Returns a set of completed level IDs for achievement checking
+  Set<String> get completedLevelsSet => completedLevels.toSet();
 }
