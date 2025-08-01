@@ -185,7 +185,7 @@ class GameService {
     final totalStars = _currentPlayer!.totalStars;
 
     // Unlock next age group if player has enough achievements and stars
-    if (currentAgeGroup != AgeGroup.tween &&
+    if (currentAgeGroup != AgeGroup.youngScholars &&
         achievementCount >= 5 &&
         totalStars >= 50 &&
         currentAgeGroup.index < _currentPlayer!.highestUnlockedAgeGroup.index) {
@@ -223,7 +223,7 @@ class GameService {
 
   List<GameLevel> _generateMathLevels(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
+      case AgeGroup.littleTots:
         return [
           GameLevel(
             id: 'math_count_1',
@@ -268,7 +268,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.elementary:
+      case AgeGroup.smartKids:
         return [
           GameLevel(
             id: 'math_count_1',
@@ -313,7 +313,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.tween:
+      case AgeGroup.youngScholars:
         return [
           GameLevel(
             id: 'math_count_1',
@@ -362,7 +362,7 @@ class GameService {
 
   List<GameLevel> _generateLanguageLevels(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
+      case AgeGroup.littleTots:
         return [
           GameLevel(
             id: 'lang_alphabet_1',
@@ -407,7 +407,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.elementary:
+      case AgeGroup.smartKids:
         return [
           GameLevel(
             id: 'lang_alphabet_1',
@@ -452,7 +452,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.tween:
+      case AgeGroup.youngScholars:
         return [
           GameLevel(
             id: 'lang_alphabet_1',
@@ -501,7 +501,7 @@ class GameService {
 
   List<GameLevel> _generateScienceLevels(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
+      case AgeGroup.littleTots:
         return [
           GameLevel(
             id: 'science_animals_1',
@@ -516,7 +516,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.elementary:
+      case AgeGroup.smartKids:
         return [
           GameLevel(
             id: 'science_plants_1',
@@ -531,7 +531,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.tween:
+      case AgeGroup.youngScholars:
         return [
           GameLevel(
             id: 'science_space_1',
@@ -550,7 +550,7 @@ class GameService {
 
   List<GameLevel> _generateGeneralLevels(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
+      case AgeGroup.littleTots:
         return [
           GameLevel(
             id: 'general_colors_1',
@@ -565,7 +565,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.elementary:
+      case AgeGroup.smartKids:
         return [
           GameLevel(
             id: 'general_world_1',
@@ -580,7 +580,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.tween:
+      case AgeGroup.youngScholars:
         return [
           GameLevel(
             id: 'general_history_1',
@@ -695,7 +695,7 @@ class GameService {
             unlockedLevels: catData['unlockedLevels'] as int? ?? 1,
             currentAgeGroup: AgeGroup.values.firstWhere(
               (e) => e.toString() == catData['currentAgeGroup'],
-              orElse: () => AgeGroup.toddler,
+              orElse: () => AgeGroup.littleTots,
             ),
             levels: levels,
           );
@@ -703,7 +703,7 @@ class GameService {
         
         final highestUnlockedAgeGroup = AgeGroup.values.firstWhere(
           (e) => e.toString() == data['highestUnlockedAgeGroup'],
-          orElse: () => AgeGroup.toddler,
+          orElse: () => AgeGroup.littleTots,
         );
         
         _currentPlayer = PlayerProgress(
