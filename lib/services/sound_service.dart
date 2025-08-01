@@ -27,7 +27,12 @@ class SoundService {
   // Background Music Controls
   Future<void> playBackgroundMusic() async {
     if (_isMuted) return;
-    await _musicPlayer.play(AssetSource(backgroundMusic));
+    try {
+      await _musicPlayer.play(AssetSource(backgroundMusic));
+    } catch (e) {
+      // Handle missing sound file gracefully
+      print('Sound file not found: $backgroundMusic');
+    }
   }
 
   Future<void> stopBackgroundMusic() async {
@@ -46,27 +51,52 @@ class SoundService {
   // Sound Effects
   Future<void> playSuccess() async {
     if (_isMuted) return;
-    await _effectsPlayer.play(AssetSource(successSound));
+    try {
+      await _effectsPlayer.play(AssetSource(successSound));
+    } catch (e) {
+      // Handle missing sound file gracefully
+      print('Sound file not found: $successSound');
+    }
   }
 
   Future<void> playError() async {
     if (_isMuted) return;
-    await _effectsPlayer.play(AssetSource(errorSound));
+    try {
+      await _effectsPlayer.play(AssetSource(errorSound));
+    } catch (e) {
+      // Handle missing sound file gracefully
+      print('Sound file not found: $errorSound');
+    }
   }
 
   Future<void> playClick() async {
     if (_isMuted) return;
-    await _effectsPlayer.play(AssetSource(clickSound));
+    try {
+      await _effectsPlayer.play(AssetSource(clickSound));
+    } catch (e) {
+      // Handle missing sound file gracefully
+      print('Sound file not found: $clickSound');
+    }
   }
 
   Future<void> playAchievement() async {
     if (_isMuted) return;
-    await _effectsPlayer.play(AssetSource(achievementSound));
+    try {
+      await _effectsPlayer.play(AssetSource(achievementSound));
+    } catch (e) {
+      // Handle missing sound file gracefully
+      print('Sound file not found: $achievementSound');
+    }
   }
 
   Future<void> playLevelComplete() async {
     if (_isMuted) return;
-    await _effectsPlayer.play(AssetSource(levelCompleteSound));
+    try {
+      await _effectsPlayer.play(AssetSource(levelCompleteSound));
+    } catch (e) {
+      // Handle missing sound file gracefully
+      print('Sound file not found: $levelCompleteSound');
+    }
   }
 
   // Volume Controls
