@@ -35,6 +35,15 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     super.initState();
     _initializeAnimations();
     _loadUserProfile();
+    _initializeSoundService();
+  }
+  
+  Future<void> _initializeSoundService() async {
+    try {
+      await _soundService.initialize();
+    } catch (e) {
+      print('Error initializing sound service: $e');
+    }
   }
 
   void _initializeAnimations() {
@@ -83,13 +92,26 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           // Load age group from game provider
           final gameProvider = Provider.of<GameProvider>(context, listen: false);
           setState(() {
-            _selectedAgeGroup = gameProvider.selectedAgeGroup;
+            _selectedAgeGroup = gameProvider.selectedAgeGroup ?? AgeGroup.littleTots;
+          });
+        } else {
+          setState(() {
+            _isLoading = false;
+            _selectedAgeGroup = AgeGroup.littleTots; // Default age group
           });
         }
       } catch (e) {
         print('Error loading user profile: $e');
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _selectedAgeGroup = AgeGroup.littleTots; // Default age group
+        });
       }
+    } else {
+      setState(() {
+        _isLoading = false;
+        _selectedAgeGroup = AgeGroup.littleTots; // Default age group
+      });
     }
   }
 
@@ -109,7 +131,11 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         }
         
         setState(() => _isEditing = false);
-        _soundService.playSuccess();
+        try {
+          _soundService.playSuccess();
+        } catch (e) {
+          print('Error playing success sound: $e');
+        }
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -120,7 +146,11 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         
         _loadUserProfile(); // Reload to show updated data
       } catch (e) {
-        _soundService.playError();
+        try {
+          _soundService.playError();
+        } catch (soundError) {
+          print('Error playing error sound: $soundError');
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error updating profile: $e'),
@@ -153,7 +183,11 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () {
-                _soundService.playClick();
+                try {
+                  _soundService.playClick();
+                } catch (e) {
+                  print('Error playing click sound: $e');
+                }
                 setState(() => _isEditing = true);
               },
             ),
@@ -500,7 +534,11 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 ? (AgeGroup? value) {
                     if (value != null) {
                       setState(() => _selectedAgeGroup = value);
-                      _soundService.playClick();
+                      try {
+                        _soundService.playClick();
+                      } catch (e) {
+                        print('Error playing click sound: $e');
+                      }
                     }
                   }
                 : null,
@@ -515,7 +553,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       builder: (context, gameProvider, child) {
         final progress = gameProvider.playerProgress;
         final totalGames = gameProvider.allGameLevels.length;
-        final completedGames = progress.completedLevels.length;
+        final completedGames = progress?.completedLevels.length ?? 0;
         final progressPercentage = totalGames > 0 ? completedGames / totalGames : 0.0;
         
         return Column(
@@ -569,7 +607,11 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         Expanded(
           child: ElevatedButton(
             onPressed: () {
-              _soundService.playClick();
+              try {
+                _soundService.playClick();
+              } catch (e) {
+                print('Error playing click sound: $e');
+              }
               setState(() => _isEditing = false);
             },
             style: ElevatedButton.styleFrom(
@@ -643,14 +685,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   }
 
   String _getAgeGroupDisplayName(AgeGroup group) {
-    switch (group) {
-      case AgeGroup.littleTots:
-        return 'Little Tots (3-5 years)';
-      case AgeGroup.smartKids:
-        return 'Smart Kids (6-8 years)';
-      case AgeGroup.youngScholars:
-        return 'Young Scholars (9-12 years)';
-    }
+    return '${group.displayName} (${group.description})';
   }
 
   String _formatDate(DateTime? date) {
