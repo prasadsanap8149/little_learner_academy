@@ -227,4 +227,6 @@ class PlayerProgress {
               : 2],
     );
   }
+
+  get completedLevels => null;
 }
