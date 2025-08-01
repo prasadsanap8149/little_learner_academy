@@ -3,6 +3,7 @@ import 'dart:math';
 import '../models/game_level.dart';
 import '../models/age_group.dart';
 import '../widgets/answer_options_grid.dart';
+import '../services/sound_service.dart';
 
 class MathCountingGame extends StatefulWidget {
   final GameLevel level;
@@ -30,6 +31,7 @@ class _MathCountingGameState extends State<MathCountingGame>
   late Animation<double> _cardSlideAnimation;
   late Animation<double> _itemScaleAnimation;
 
+  final SoundService _soundService = SoundService();
   int _currentQuestion = 0;
   int _score = 0;
   final int _totalQuestions = 8; // Increased from 5 to 8
@@ -43,6 +45,7 @@ class _MathCountingGameState extends State<MathCountingGame>
     super.initState();
     _initializeAnimations();
     _generateQuestions();
+    _soundService.initialize(); // Initialize sound service
   }
 
   void _initializeAnimations() {
@@ -362,15 +365,20 @@ class _MathCountingGameState extends State<MathCountingGame>
       _bounceController.reverse();
     });
 
-    // Check if correct
+    // Check if correct and play appropriate sound
     if (answer == _questions[_currentQuestion].correctAnswer) {
       _score += 20; // 20 points per correct answer
       widget.onScoreUpdate(20);
+      _soundService.playSuccess(); // Play success sound
+    } else {
+      _soundService.playError(); // Play error sound
     }
   }
 
   void _nextQuestion() {
+    _soundService.playClick(); // Play click sound
     setState(() {
+      
       _currentQuestion++;
       _selectedAnswer = null;
       _showResult = false;
