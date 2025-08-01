@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:little_learners_academy/screens/login_screen.dart';
 import '../screens/welcome_screen.dart';
+import '../models/age_group.dart';
+import '../models/player_progress.dart';
+import '../models/game_level.dart';
 import 'game_service.dart';
 import 'auth_service.dart';
 
@@ -12,6 +15,13 @@ class GameProvider extends ChangeNotifier {
   GameService get gameService => _gameService;
   AuthService get authService => _authService;
   bool get isLoading => _isLoading;
+  
+  // Add missing getter methods
+  PlayerProgress? get playerProgress => _gameService.currentPlayer;
+  List<GameLevel> get allGameLevels => _gameService.getAvailableLevels();
+  AgeGroup? get selectedAgeGroup => _gameService.currentPlayer != null 
+      ? AgeGroup.fromAge(_gameService.currentPlayer!.age) 
+      : null;
   
   GameProvider() {
     _initialize();
@@ -186,4 +196,27 @@ class GameProvider extends ChangeNotifier {
   // Check if Firebase sync is available
   bool get canSyncToFirebase => _gameService.canSyncToFirebase;
 
+  // Method to update age group
+  Future<void> setAgeGroup(AgeGroup ageGroup) async {
+    if (_gameService.currentPlayer != null) {
+      // Update the player's age based on the selected age group
+      int newAge;
+      switch (ageGroup) {
+        case AgeGroup.littleTots:
+          newAge = 4; // Representative age for little tots (3-5)
+          break;
+        case AgeGroup.smartKids:
+          newAge = 7; // Representative age for smart kids (6-8)
+          break;
+        case AgeGroup.youngScholars:
+          newAge = 10; // Representative age for young scholars (9-12)
+          break;
+      }
+      
+      // Update the player's age
+      final updatedPlayer = _gameService.currentPlayer!.copyWith(age: newAge);
+      await _gameService.updatePlayer(updatedPlayer);
+      notifyListeners();
+    }
+  }
 }
