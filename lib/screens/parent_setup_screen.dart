@@ -14,7 +14,7 @@ class ParentSetupScreen extends StatefulWidget {
 class _ParentSetupScreenState extends State<ParentSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  AgeGroup _selectedAgeGroup = AgeGroup.toddler;
+  AgeGroup _selectedAgeGroup = AgeGroup.littleTots;
   bool _isParentMode = true;
 
   @override
@@ -258,23 +258,23 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
 
   IconData _getAgeGroupIcon(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
+      case AgeGroup.littleTots:
         return Icons.child_care;
-      case AgeGroup.elementary:
+      case AgeGroup.smartKids:
         return Icons.school;
-      case AgeGroup.tween:
+      case AgeGroup.youngScholars:
         return Icons.emoji_people;
     }
   }
 
   String _getAgeGroupDescription(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
-        return 'Ages 2-4 • Early Learning';
-      case AgeGroup.elementary:
-        return 'Ages 5-7 • Basic Skills';
-      case AgeGroup.tween:
-        return 'Ages 8-12 • Advanced Learning';
+      case AgeGroup.littleTots:
+        return 'Ages 3-5 • Early Learning';
+      case AgeGroup.smartKids:
+        return 'Ages 6-8 • Basic Skills';
+      case AgeGroup.youngScholars:
+        return 'Ages 9-12 • Advanced Learning';
     }
   }
 
@@ -300,11 +300,11 @@ class _ParentSetupScreenState extends State<ParentSetupScreen> {
 
   int _getAgeGroupMidAge(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
-        return 3;
-      case AgeGroup.elementary:
-        return 6;
-      case AgeGroup.tween:
+      case AgeGroup.littleTots:
+        return 4;
+      case AgeGroup.smartKids:
+        return 7;
+      case AgeGroup.youngScholars:
         return 10;
     }
   }
