@@ -114,7 +114,7 @@ class CategoryProgress {
         unlockedLevels: json['unlockedLevels'] ?? 1,
         currentAgeGroup: AgeGroup.values.firstWhere(
           (e) => e.toString() == json['currentAgeGroup'],
-          orElse: () => AgeGroup.toddler,
+          orElse: () => AgeGroup.littleTots,
         ),
       );
 }
@@ -203,7 +203,7 @@ class PlayerProgress {
         lastPlayed: DateTime.parse(json['lastPlayed']),
         highestUnlockedAgeGroup: AgeGroup.values.firstWhere(
           (e) => e.toString() == json['highestUnlockedAgeGroup'],
-          orElse: () => AgeGroup.toddler,
+          orElse: () => AgeGroup.littleTots,
         ),
       );
 
