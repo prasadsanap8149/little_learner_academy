@@ -45,7 +45,16 @@ class _MathCountingGameState extends State<MathCountingGame>
     super.initState();
     _initializeAnimations();
     _generateQuestions();
-    _soundService.initialize(); // Initialize sound service
+    _initializeSoundService();
+  }
+  
+  Future<void> _initializeSoundService() async {
+    try {
+      await _soundService.initialize();
+    } catch (e) {
+      print('Error initializing sound service: $e');
+      // Continue without sound if initialization fails
+    }
   }
 
   void _initializeAnimations() {
@@ -101,7 +110,6 @@ class _MathCountingGameState extends State<MathCountingGame>
   }
 
   @override
-  @override
   void dispose() {
     _bounceController.dispose();
     _cardAnimationController.dispose();
@@ -115,29 +123,32 @@ class _MathCountingGameState extends State<MathCountingGame>
 
     for (int i = 0; i < _totalQuestions; i++) {
       // Generate counting questions based on age group
-      int maxCount = widget.level.ageGroup == AgeGroup.toddler ? 5 : 10;
+      int maxCount = widget.level.ageGroup == AgeGroup.littleTots ? 5 : 10;
       int correctAnswer = random.nextInt(maxCount) + 1;
 
       // Generate wrong answers - ensure correct answer is always included
       Set<int> options = {correctAnswer};
-      while (options.length < 4) {
+      int attempts = 0;
+      while (options.length < 4 && attempts < 20) {
         int wrongAnswer = random.nextInt(maxCount) + 1;
         if (wrongAnswer != correctAnswer && wrongAnswer > 0) {
           options.add(wrongAnswer);
         }
+        attempts++;
       }
 
       // Ensure we have exactly 4 options including the correct one
       List<int> shuffledOptions = options.toList();
-      if (shuffledOptions.length < 4) {
-        // Add more options if needed
-        while (shuffledOptions.length < 4) {
-          int newOption = random.nextInt(maxCount) + 1;
-          if (!shuffledOptions.contains(newOption)) {
-            shuffledOptions.add(newOption);
-          }
+      while (shuffledOptions.length < 4) {
+        // Add more options if needed, ensuring they're within valid range
+        int newOption = random.nextInt(maxCount) + 1;
+        if (!shuffledOptions.contains(newOption)) {
+          shuffledOptions.add(newOption);
         }
       }
+      
+      // Take only the first 4 options and shuffle them
+      shuffledOptions = shuffledOptions.take(4).toList();
       shuffledOptions.shuffle();
 
       _questions.add(CountingQuestion(
@@ -252,11 +263,9 @@ class _MathCountingGameState extends State<MathCountingGame>
                                 return AnimatedBuilder(
                                   animation: _itemAnimationController,
                                   builder: (context, child) {
-                                    final animationValue = Curves.elasticOut
-                                        .transform(
-                                            (_itemAnimationController.value -
-                                                    delay)
-                                                .clamp(0.0, 1.0));
+                                    final normalizedDelay = delay.clamp(0.0, 1.0);
+                                    final adjustedProgress = (_itemAnimationController.value - normalizedDelay * 0.1).clamp(0.0, 1.0);
+                                    final animationValue = Curves.elasticOut.transform(adjustedProgress);
 
                                     return Transform.scale(
                                       scale: animationValue,
@@ -369,20 +378,38 @@ class _MathCountingGameState extends State<MathCountingGame>
     if (answer == _questions[_currentQuestion].correctAnswer) {
       _score += 20; // 20 points per correct answer
       widget.onScoreUpdate(20);
-      _soundService.playSuccess(); // Play success sound
+      try {
+        _soundService.playSuccess(); // Play success sound
+      } catch (e) {
+        print('Error playing success sound: $e');
+      }
     } else {
-      _soundService.playError(); // Play error sound
+      try {
+        _soundService.playError(); // Play error sound
+      } catch (e) {
+        print('Error playing error sound: $e');
+      }
     }
-  }
-
-  void _nextQuestion() {
-    _soundService.playClick(); // Play click sound
+  }  void _nextQuestion() {
+    try {
+      _soundService.playClick(); // Play click sound
+    } catch (e) {
+      print('Error playing click sound: $e');
+    }
+    
     setState(() {
-      
       _currentQuestion++;
       _selectedAnswer = null;
       _showResult = false;
     });
+    
+    // Restart animations for the new question
+    if (_currentQuestion < _totalQuestions) {
+      _cardAnimationController.reset();
+      _itemAnimationController.reset();
+      _cardAnimationController.forward();
+      _itemAnimationController.forward();
+    }
   }
 }
 
