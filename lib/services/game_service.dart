@@ -730,4 +730,14 @@ class GameService {
       // Don't throw error to avoid breaking local functionality
     }
   }
+
+  Future<void> updatePlayer(PlayerProgress updatedPlayer) async {
+    _currentPlayer = updatedPlayer.copyWith(lastPlayed: DateTime.now());
+    await _saveCurrentPlayer();
+    
+    // Sync to Firebase if possible
+    if (canSyncToFirebase) {
+      await _saveProgressToFirebase();
+    }
+  }
 }
