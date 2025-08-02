@@ -10,7 +10,8 @@ import 'offline_service.dart';
 class GameService {
   static const String _playerKey = 'player_progress';
   static const String _currentPlayerKey = 'current_player_id';
-  static const String _offlineScoresKey = 'offline_scores';
+  // For future offline score tracking
+  // static const String _offlineScoresKey = 'offline_scores';
   static const String _offlineProgressKey = 'offline_progress';
 
   late SharedPreferences _prefs;
@@ -72,13 +73,9 @@ class GameService {
     if (_currentPlayer == null) return;
 
     // Always save locally first
-    _currentPlayer!.updateGameProgress(
-      gameId: gameId,
-      level: level,
-      score: score,
-      timeSpent: timeSpent,
-      completed: completed,
-    );
+    final levelId = '${gameId}_$level';
+    final stars = _calculateStars(score);
+    _currentPlayer = _currentPlayer!.updateGameProgress(levelId, score, stars);
     
     await _saveCurrentPlayer();
 
@@ -127,13 +124,9 @@ class GameService {
         final progress = json.decode(progressJson);
         // Update current player with offline progress
         if (_currentPlayer != null) {
-          _currentPlayer!.updateGameProgress(
-            gameId: progress['gameId'],
-            level: progress['level'],
-            score: progress['score'],
-            timeSpent: progress['timeSpent'],
-            completed: progress['completed'],
-          );
+          final levelId = '${progress['gameId']}_${progress['level']}';
+          final stars = _calculateStars(progress['score']);
+          _currentPlayer = _currentPlayer!.updateGameProgress(levelId, progress['score'], stars);
         }
       }
       
@@ -270,67 +263,80 @@ class GameService {
         return [
           GameLevel(
             id: 'math_1',
-            gameId: gameId,
-            levelNumber: 1,
             title: 'Count to 5',
+            subject: Subject.math,
+            ageGroup: AgeGroup.littleTots,
+            gameType: GameType.matching,
             difficulty: 1,
+            objectives: ['Count objects 1-5', 'Match numbers to quantities'],
             maxScore: 100,
             isUnlocked: true,
-            ageGroup: AgeGroup.toddler,
           ),
           GameLevel(
             id: 'math_2',
-            gameId: gameId,
-            levelNumber: 2,
             title: 'Count to 10',
+            subject: Subject.math,
+            ageGroup: AgeGroup.littleTots,
+            gameType: GameType.matching,
             difficulty: 2,
+            objectives: ['Count objects 1-10', 'Match numbers to quantities'],
             maxScore: 100,
             isUnlocked: false,
-            ageGroup: AgeGroup.toddler,
           ),
         ];
       case 'alphabet_matching':
         return [
           GameLevel(
             id: 'alphabet_1',
-            gameId: gameId,
-            levelNumber: 1,
             title: 'Letter A-E',
+            subject: Subject.language,
+            ageGroup: AgeGroup.littleTots,
+            gameType: GameType.matching,
             difficulty: 1,
+            objectives: ['Match uppercase and lowercase letters', 'Learn letter sounds'],
             maxScore: 100,
             isUnlocked: true,
-            ageGroup: AgeGroup.toddler,
           ),
         ];
       case 'color_matching':
         return [
           GameLevel(
             id: 'color_1',
-            gameId: gameId,
-            levelNumber: 1,
             title: 'Basic Colors',
+            subject: Subject.general,
+            ageGroup: AgeGroup.littleTots,
+            gameType: GameType.matching,
             difficulty: 1,
+            objectives: ['Match colors', 'Learn color names'],
             maxScore: 100,
             isUnlocked: true,
-            ageGroup: AgeGroup.toddler,
           ),
         ];
       case 'animal_science':
         return [
           GameLevel(
             id: 'animal_1',
-            gameId: gameId,
-            levelNumber: 1,
             title: 'Farm Animals',
+            subject: Subject.science,
+            ageGroup: AgeGroup.littleTots,
+            gameType: GameType.quiz,
             difficulty: 1,
+            objectives: ['Learn farm animal names', 'Match animals to sounds'],
             maxScore: 100,
             isUnlocked: true,
-            ageGroup: AgeGroup.toddler,
           ),
         ];
       default:
         return [];
     }
+  }
+
+  // Calculate stars based on score (0-3 stars)
+  int _calculateStars(int score) {
+    if (score >= 90) return 3;
+    if (score >= 70) return 2;
+    if (score >= 50) return 1;
+    return 0;
   }
 
   // Update level score
@@ -424,5 +430,40 @@ class GameService {
   // Save progress to Firebase
   Future<void> _saveProgressToFirebase() async {
     await syncProgressToFirebase();
+  }
+}
+
+// Simple offline manager for caching and queuing operations
+class OfflineManager {
+  static final OfflineManager _instance = OfflineManager._internal();
+  factory OfflineManager() => _instance;
+  OfflineManager._internal();
+
+  final Map<String, dynamic> _cache = {};
+  final List<String> _pendingOperations = [];
+
+  void cacheData(String key, dynamic data) {
+    _cache[key] = data;
+  }
+
+  T? getCachedData<T>(String key) {
+    return _cache[key] as T?;
+  }
+
+  void addPendingOperation(String operation) {
+    _pendingOperations.add(operation);
+  }
+
+  void clearPendingOperation(String operation) {
+    _pendingOperations.remove(operation);
+  }
+
+  List<String> getPendingOperations() {
+    return List.from(_pendingOperations);
+  }
+
+  void queueOperation(String type, Map<String, dynamic> data) {
+    final operation = '$type:${DateTime.now().millisecondsSinceEpoch}';
+    addPendingOperation(operation);
   }
 }
