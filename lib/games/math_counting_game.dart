@@ -107,6 +107,15 @@ class _MathCountingGameState extends State<MathCountingGame>
 
     _cardAnimationController.forward();
     _itemAnimationController.forward();
+    
+    // Play number sound after a short delay to let animations start
+    Future.delayed(const Duration(milliseconds: 800), () {
+      try {
+        _soundService.playNumberSound();
+      } catch (e) {
+        print('Error playing number sound: $e');
+      }
+    });
   }
 
   @override
@@ -187,6 +196,11 @@ class _MathCountingGameState extends State<MathCountingGame>
     if (_currentQuestion >= _totalQuestions) {
       // Game completed
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          _soundService.playLevelComplete();
+        } catch (e) {
+          print('Error playing level complete sound: $e');
+        }
         widget.onGameComplete(_score);
       });
       return const Center(child: CircularProgressIndicator());
