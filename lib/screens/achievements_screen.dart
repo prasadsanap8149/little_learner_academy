@@ -68,19 +68,32 @@ class _AchievementsScreenState extends State<AchievementsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    
+    // Enhanced responsive breakpoints
+    final isPhone = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 1200;
+    final isDesktop = screenWidth >= 1200;
+    final isLargeTablet = screenWidth >= 800 && screenWidth < 1200;
+    
+    // Dynamic spacing based on screen size
+    final horizontalPadding = isPhone ? 16.0 : isTablet ? 24.0 : 32.0;
+    final verticalSpacing = isPhone ? 12.0 : isTablet ? 16.0 : 20.0;
+    
     final achievements = _showUnlockedOnly 
         ? _achievementService.getUnlockedAchievements()
         : _achievementService.userAchievements;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Achievements',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
+            fontSize: isPhone ? 20 : 24,
           ),
         ),
         backgroundColor: const Color(0xFF6B73FF),
@@ -91,6 +104,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
             icon: Icon(
               _showUnlockedOnly ? Icons.filter_list : Icons.filter_list_off,
               color: Colors.white,
+              size: isPhone ? 24 : 28,
             ),
             onPressed: () {
               _soundService.playClick();
@@ -115,18 +129,30 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                 position: _headerSlideAnimation,
                 child: ScaleTransition(
                   scale: _headerScaleAnimation,
-                  child: _buildHeader(),
+                  child: _buildHeader(horizontalPadding, isPhone, isTablet),
                 ),
               ),
               
+              SizedBox(height: verticalSpacing),
+              
               // Filter buttons
-              _buildFilterButtons(),
+              _buildFilterButtons(horizontalPadding, isPhone),
+              
+              SizedBox(height: verticalSpacing),
               
               // Achievements grid
               Expanded(
                 child: achievements.isEmpty
-                    ? _buildEmptyState()
-                    : _buildAchievementsGrid(achievements, isTablet),
+                    ? _buildEmptyState(isPhone)
+                    : _buildAchievementsGrid(
+                        achievements, 
+                        horizontalPadding, 
+                        verticalSpacing,
+                        isPhone,
+                        isTablet,
+                        isDesktop,
+                        isLargeTablet
+                      ),
               ),
             ],
           ),
@@ -135,141 +161,227 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(double horizontalPadding, bool isPhone, bool isTablet) {
     final totalPoints = _achievementService.getTotalPoints();
     final unlockedCount = _achievementService.getUnlockedCount();
     final totalCount = _achievementService.getTotalCount();
     final progressPercentage = totalCount > 0 ? unlockedCount / totalCount : 0.0;
 
+    // Responsive sizing
+    final headerPadding = isPhone ? 20.0 : isTablet ? 28.0 : 32.0;
+    final iconSize = isPhone ? 60.0 : isTablet ? 80.0 : 100.0;
+    final titleFontSize = isPhone ? 14.0 : isTablet ? 16.0 : 18.0;
+    final valueFontSize = isPhone ? 16.0 : isTablet ? 18.0 : 20.0;
+
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(24),
+      margin: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+      padding: EdgeInsets.all(headerPadding),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 25,
+            offset: const Offset(0, 12),
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         children: [
-          // Trophy icon
+          // Trophy icon with enhanced design
           Container(
-            width: 80,
-            height: 80,
+            width: iconSize,
+            height: iconSize,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFFFD700),
+                  Color(0xFFFFA500),
+                  Color(0xFFFF8C00),
+                ],
               ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFFD700).withOpacity(0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
+                  color: const Color(0xFFFFD700).withOpacity(0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: const Color(0xFFFFD700).withOpacity(0.2),
+                  blurRadius: 40,
+                  offset: const Offset(0, 15),
                 ),
               ],
             ),
-            child: const Icon(
+            child: Icon(
               Icons.emoji_events,
-              size: 40,
+              size: iconSize * 0.5,
               color: Colors.white,
             ),
           ),
           
-          const SizedBox(height: 16),
+          SizedBox(height: isPhone ? 20 : 24),
           
-          // Statistics
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          // Statistics with enhanced layout
+          Wrap(
+            spacing: isPhone ? 16 : 24,
+            runSpacing: isPhone ? 16 : 20,
+            alignment: WrapAlignment.spaceEvenly,
             children: [
               _buildStatCard(
                 'Achievements',
                 '$unlockedCount/$totalCount',
-                Icons.star,
+                Icons.star_rounded,
                 const Color(0xFF6B73FF),
+                isPhone,
+                titleFontSize,
+                valueFontSize,
               ),
               _buildStatCard(
                 'Total Points',
                 '$totalPoints',
-                Icons.score,
+                Icons.score_rounded,
                 const Color(0xFF50C878),
+                isPhone,
+                titleFontSize,
+                valueFontSize,
               ),
               _buildStatCard(
                 'Progress',
                 '${(progressPercentage * 100).round()}%',
-                Icons.trending_up,
+                Icons.trending_up_rounded,
                 const Color(0xFFFF6B6B),
+                isPhone,
+                titleFontSize,
+                valueFontSize,
               ),
             ],
           ),
           
-          const SizedBox(height: 16),
+          SizedBox(height: isPhone ? 20 : 24),
           
-          // Progress bar
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Overall Progress',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[700],
+          // Enhanced progress bar
+          Container(
+            padding: EdgeInsets.all(isPhone ? 16 : 20),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Overall Progress',
+                      style: TextStyle(
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    Text(
+                      '${(progressPercentage * 100).round()}%',
+                      style: TextStyle(
+                        fontSize: titleFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF6B73FF),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              LinearProgressIndicator(
-                value: progressPercentage,
-                backgroundColor: Colors.grey[300],
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6B73FF)),
-                minHeight: 8,
-              ),
-            ],
+                SizedBox(height: isPhone ? 8 : 12),
+                Container(
+                  height: isPhone ? 8 : 10,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.grey[300],
+                  ),
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: progressPercentage,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF6B73FF), Color(0xFF9A8EFF)],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+  Widget _buildStatCard(String label, String value, IconData icon, Color color, bool isPhone, double titleFontSize, double valueFontSize) {
+    final cardPadding = isPhone ? 12.0 : 16.0;
+    final iconSize = isPhone ? 20.0 : 24.0;
+
+    return Container(
+      padding: EdgeInsets.all(cardPadding),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.all(isPhone ? 8 : 10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: iconSize),
           ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2D3748),
+          SizedBox(height: isPhone ? 8 : 10),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: valueFontSize,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF2D3748),
+            ),
           ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
+          SizedBox(height: isPhone ? 2 : 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: titleFontSize - 2,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildFilterButtons() {
+  Widget _buildFilterButtons(double horizontalPadding, bool isPhone) {
+    final buttonHeight = isPhone ? 44.0 : 48.0;
+    final fontSize = isPhone ? 14.0 : 16.0;
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Row(
         children: [
           Expanded(
@@ -280,6 +392,8 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                 _soundService.playClick();
                 setState(() => _showUnlockedOnly = false);
               },
+              buttonHeight,
+              fontSize,
             ),
           ),
           const SizedBox(width: 12),
@@ -291,6 +405,8 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                 _soundService.playClick();
                 setState(() => _showUnlockedOnly = true);
               },
+              buttonHeight,
+              fontSize,
             ),
           ),
         ],
@@ -298,40 +414,86 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     );
   }
 
-  Widget _buildFilterButton(String text, bool isSelected, VoidCallback onTap) {
+  Widget _buildFilterButton(String text, bool isSelected, VoidCallback onTap, double height, double fontSize) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        height: height,
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withOpacity(0.3),
-            width: 1,
+            color: isSelected ? Colors.white : Colors.white.withOpacity(0.3),
+            width: isSelected ? 2 : 1,
           ),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ] : null,
         ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? const Color(0xFF6B73FF) : Colors.white,
-            fontWeight: FontWeight.w600,
+        child: Center(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: isSelected ? const Color(0xFF6B73FF) : Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: fontSize,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildAchievementsGrid(List<Achievement> achievements, bool isTablet) {
+  Widget _buildAchievementsGrid(
+    List<Achievement> achievements, 
+    double horizontalPadding, 
+    double verticalSpacing,
+    bool isPhone,
+    bool isTablet,
+    bool isDesktop,
+    bool isLargeTablet
+  ) {
+    // Responsive grid configuration
+    int crossAxisCount;
+    double childAspectRatio;
+    double crossAxisSpacing;
+    double mainAxisSpacing;
+
+    if (isDesktop) {
+      crossAxisCount = 4;
+      childAspectRatio = 0.85;
+      crossAxisSpacing = 24;
+      mainAxisSpacing = 24;
+    } else if (isLargeTablet) {
+      crossAxisCount = 3;
+      childAspectRatio = 0.8;
+      crossAxisSpacing = 20;
+      mainAxisSpacing = 20;
+    } else if (isTablet) {
+      crossAxisCount = 3;
+      childAspectRatio = 0.75;
+      crossAxisSpacing = 16;
+      mainAxisSpacing = 16;
+    } else {
+      crossAxisCount = 2;
+      childAspectRatio = 0.9;
+      crossAxisSpacing = 12;
+      mainAxisSpacing = 16;
+    }
+
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: GridView.builder(
+        physics: const BouncingScrollPhysics(),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: isTablet ? 3 : 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.8,
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: crossAxisSpacing,
+          mainAxisSpacing: mainAxisSpacing,
+          childAspectRatio: childAspectRatio,
         ),
         itemCount: achievements.length,
         itemBuilder: (context, index) {
@@ -339,13 +501,14 @@ class _AchievementsScreenState extends State<AchievementsScreen>
           return AnimatedBuilder(
             animation: _cardsAnimationController,
             builder: (context, child) {
+              final delay = index * 0.1;
               final animationValue = Curves.easeOutBack.transform(
-                (_cardsAnimationController.value - (index * 0.1)).clamp(0.0, 1.0),
+                ((_cardsAnimationController.value - delay).clamp(0.0, 1.0)),
               );
               
               return Transform.scale(
                 scale: animationValue,
-                child: _buildAchievementCard(achievement),
+                child: _buildAchievementCard(achievement, isPhone, isTablet),
               );
             },
           );
@@ -354,7 +517,14 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     );
   }
 
-  Widget _buildAchievementCard(Achievement achievement) {
+  Widget _buildAchievementCard(Achievement achievement, bool isPhone, bool isTablet) {
+    // Responsive sizing
+    final cardPadding = isPhone ? 16.0 : isTablet ? 20.0 : 24.0;
+    final iconSize = isPhone ? 50.0 : isTablet ? 60.0 : 70.0;
+    final titleFontSize = isPhone ? 14.0 : isTablet ? 15.0 : 16.0;
+    final subtitleFontSize = isPhone ? 12.0 : isTablet ? 13.0 : 14.0;
+    final borderRadius = isPhone ? 20.0 : 24.0;
+
     return GestureDetector(
       onTap: () {
         _soundService.playClick();
@@ -362,109 +532,203 @@ class _AchievementsScreenState extends State<AchievementsScreen>
       },
       child: Container(
         decoration: BoxDecoration(
-          color: achievement.isUnlocked ? Colors.white : Colors.white.withOpacity(0.7),
-          borderRadius: BorderRadius.circular(16),
+          color: achievement.isUnlocked ? Colors.white : Colors.white.withOpacity(0.85),
+          borderRadius: BorderRadius.circular(borderRadius),
+          border: Border.all(
+            color: achievement.isUnlocked 
+                ? const Color(0xFFFFD700).withOpacity(0.3)
+                : Colors.grey.withOpacity(0.2),
+            width: achievement.isUnlocked ? 2 : 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
+              color: achievement.isUnlocked
+                  ? const Color(0xFFFFD700).withOpacity(0.15)
+                  : Colors.black.withOpacity(0.08),
+              blurRadius: achievement.isUnlocked ? 20 : 15,
+              offset: const Offset(0, 8),
+              spreadRadius: achievement.isUnlocked ? 2 : 0,
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(cardPadding),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Achievement icon
+              // Achievement icon with enhanced design
               Container(
-                width: 60,
-                height: 60,
+                width: iconSize,
+                height: iconSize,
                 decoration: BoxDecoration(
                   gradient: achievement.isUnlocked
                       ? const LinearGradient(
-                          colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFFFD700),
+                            Color(0xFFFFA500),
+                            Color(0xFFFF8C00),
+                          ],
                         )
                       : LinearGradient(
-                          colors: [Colors.grey[400]!, Colors.grey[600]!],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.grey[300]!,
+                            Colors.grey[400]!,
+                            Colors.grey[500]!,
+                          ],
                         ),
                   shape: BoxShape.circle,
+                  boxShadow: achievement.isUnlocked ? [
+                    BoxShadow(
+                      color: const Color(0xFFFFD700).withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ] : null,
                 ),
                 child: Center(
                   child: Text(
                     achievement.icon,
-                    style: const TextStyle(fontSize: 24),
+                    style: TextStyle(
+                      fontSize: iconSize * 0.4,
+                      shadows: achievement.isUnlocked ? [
+                        const Shadow(
+                          color: Colors.black26,
+                          offset: Offset(1, 1),
+                          blurRadius: 2,
+                        ),
+                      ] : null,
+                    ),
                   ),
                 ),
               ),
               
-              const SizedBox(height: 12),
+              SizedBox(height: isPhone ? 12 : 16),
               
-              // Achievement title
+              // Achievement title with better typography
               Text(
                 achievement.title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: titleFontSize,
                   fontWeight: FontWeight.bold,
                   color: achievement.isUnlocked
                       ? const Color(0xFF2D3748)
                       : Colors.grey[600],
+                  height: 1.2,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               
-              const SizedBox(height: 8),
+              SizedBox(height: isPhone ? 8 : 12),
               
-              // Progress or points
+              // Progress or points with enhanced design
               if (achievement.isUnlocked) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF50C878).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isPhone ? 10 : 12,
+                    vertical: isPhone ? 6 : 8,
                   ),
-                  child: Text(
-                    '+${achievement.points} pts',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF50C878),
-                      fontWeight: FontWeight.w600,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF50C878), Color(0xFF32CD32)],
                     ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF50C878).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.stars_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '+${achievement.points}',
+                        style: TextStyle(
+                          fontSize: subtitleFontSize,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ] else ...[
-                // Progress bar for locked achievements
-                Column(
-                  children: [
-                    Text(
-                      '${achievement.progress}/${achievement.maxProgress}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
+                // Enhanced progress bar for locked achievements
+                Container(
+                  padding: EdgeInsets.all(isPhone ? 8 : 10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '${achievement.progress}/${achievement.maxProgress}',
+                        style: TextStyle(
+                          fontSize: subtitleFontSize,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    LinearProgressIndicator(
-                      value: achievement.progressPercentage,
-                      backgroundColor: Colors.grey[300],
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6B73FF)),
-                      minHeight: 4,
-                    ),
-                  ],
+                      SizedBox(height: isPhone ? 4 : 6),
+                      Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(3),
+                          color: Colors.grey[300],
+                        ),
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: achievement.progressPercentage,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(3),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF6B73FF), Color(0xFF9A8EFF)],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
               
-              // Lock indicator
+              // Lock indicator with enhanced design
               if (!achievement.isUnlocked) ...[
-                const SizedBox(height: 8),
-                Icon(
-                  Icons.lock,
-                  size: 16,
-                  color: Colors.grey[400],
+                SizedBox(height: isPhone ? 6 : 8),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.lock_rounded,
+                    size: isPhone ? 14 : 16,
+                    color: Colors.grey[500],
+                  ),
                 ),
               ],
             ],
@@ -474,43 +738,56 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isPhone) {
+    final iconSize = isPhone ? 80.0 : 100.0;
+    final titleFontSize = isPhone ? 18.0 : 22.0;
+    final subtitleFontSize = isPhone ? 14.0 : 16.0;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 100,
-            height: 100,
+            width: iconSize,
+            height: iconSize,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white.withOpacity(0.3),
+                  Colors.white.withOpacity(0.1),
+                ],
+              ),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.emoji_events,
-              size: 50,
+            child: Icon(
+              Icons.emoji_events_outlined,
+              size: iconSize * 0.6,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 20),
-          const Text(
+          SizedBox(height: isPhone ? 16 : 20),
+          Text(
             'No achievements found',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: titleFontSize,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            _showUnlockedOnly
-                ? 'Complete games to unlock achievements!'
-                : 'Start playing to earn achievements!',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withOpacity(0.8),
+          SizedBox(height: isPhone ? 8 : 12),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: isPhone ? 32 : 48),
+            child: Text(
+              _showUnlockedOnly
+                  ? 'Complete games to unlock achievements!'
+                  : 'Start playing to earn achievements!',
+              style: TextStyle(
+                fontSize: subtitleFontSize,
+                color: Colors.white.withOpacity(0.8),
+                height: 1.3,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
