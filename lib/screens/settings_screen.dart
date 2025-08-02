@@ -31,6 +31,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
+    _initializeSoundService();
+  }
+
+  Future<void> _initializeSoundService() async {
+    try {
+      await _soundService.initialize();
+    } catch (e) {
+      print('Error initializing sound service: $e');
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -42,6 +51,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _musicVolume = prefs.getDouble('music_volume') ?? 0.6;
       _selectedLanguage = prefs.getString('selected_language') ?? 'English';
     });
+    
+    // Apply settings to sound service
+    await _soundService.loadSettings(
+      soundEnabled: _soundEnabled,
+      musicEnabled: _musicEnabled,
+      soundVolume: _soundVolume,
+      musicVolume: _musicVolume,
+    );
   }
 
   Future<void> _saveSettings() async {
@@ -355,8 +372,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           fontSize: 12,
         ),
       ),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: () => _showLanguageDialog(),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),                      onTap: () {
+                        try {
+                          _soundService.playClick();
+                        } catch (e) {
+                          print('Error playing click sound: $e');
+                        }
+                        _showLanguageDialog();
+                      },
     );
   }
 
@@ -433,7 +456,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () {
                   setState(() => _selectedLanguage = language['name']!);
                   _saveSettings();
-                  _soundService.playClick();
+                  try {
+                    _soundService.playClick();
+                  } catch (e) {
+                    print('Error playing click sound: $e');
+                  }
                   Navigator.of(context).pop();
                   
                   // Show coming soon message for non-English languages
