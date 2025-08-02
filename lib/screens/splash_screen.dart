@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'dart:async';
 import '../services/game_provider.dart';
 import '../services/auth_service.dart';
+import '../services/admin_service.dart';
+import '../admin/screens/admin_dashboard_screen.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
 import 'user_setup_screen.dart';
@@ -71,6 +73,15 @@ class _SplashScreenState extends State<SplashScreen>
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
     
     if (authService.isAuthenticated) {
+      // Check if user is an admin first
+      if (AdminService.isAdminUser()) {
+        // Navigate to admin dashboard
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+        );
+        return;
+      }
+      
       // User is authenticated, check if setup is completed using the improved method
       final setupCompleted = await authService.isUserSetupCompleted();
       
