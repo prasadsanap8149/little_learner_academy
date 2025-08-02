@@ -1,0 +1,237 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions for admin access
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserEmail() {
+      return request.auth.token.email;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        getUserEmail() == 'admin@littlelearnersacademy.com' ||
+        getUserEmail() == 'prasad@littlelearnersacademy.com' ||
+        getUserEmail() == 'content@littlelearnersacademy.com' ||
+        getUserEmail() == 'support@littlelearnersacademy.com'
+      );
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        getUserEmail() == 'admin@littlelearnersacademy.com' ||
+        getUserEmail() == 'prasad@littlelearnersacademy.com'
+      );
+    }
+    
+    function isContentManager() {
+      return isAuthenticated() && (
+        getUserEmail() == 'content@littlelearnersacademy.com' ||
+        isSuperAdmin()
+      );
+    }
+    
+    function isSupport() {
+      return isAuthenticated() && (
+        getUserEmail() == 'support@littlelearnersacademy.com' ||
+        isSuperAdmin()
+      );
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Admin users collection - only admins can access
+    match /admin_users/{adminId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Regular users collection
+    match /users/{userId} {
+      // Users can read/write their own data
+      allow read, write: if isOwner(userId);
+      // Admins can read all user data
+      allow read: if isAdmin();
+      // Support and super admins can update user data
+      allow update: if isSupport();
+      // Only super admins can delete users
+      allow delete: if isSuperAdmin();
+    }
+    
+    // User profiles collection (separate from main users for additional data)
+    match /user_profiles/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAdmin();
+      allow update: if isSupport();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Player progress tracking
+    match /player_progress/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAdmin();
+      allow update: if isSupport(); // Support can help with progress issues
+    }
+    
+    // Game sessions tracking
+    match /game_sessions/{sessionId} {
+      allow read, write: if isAuthenticated() && 
+        (isOwner(resource.data.userId) || resource == null);
+      allow read: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Games collection - content management
+    match /games/{gameId} {
+      // All authenticated users can read games
+      allow read: if isAuthenticated();
+      // Only content managers and super admins can modify games
+      allow create, update, delete: if isContentManager();
+    }
+    
+    // Game levels collection
+    match /game_levels/{levelId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isContentManager();
+    }
+    
+    // Achievements collection
+    match /achievements/{achievementId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isContentManager();
+    }
+    
+    // User achievements (individual progress)
+    match /user_achievements/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAdmin();
+      allow update: if isSupport();
+    }
+    
+    // Subscription plans
+    match /subscription_plans/{planId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSuperAdmin();
+    }
+    
+    // User subscriptions
+    match /user_subscriptions/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAdmin();
+      allow update: if isSupport(); // Support can help with subscription issues
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Payment transactions
+    match /payment_transactions/{transactionId} {
+      allow read: if isAuthenticated() && 
+        (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(resource.data.userId);
+      allow update: if isSuperAdmin(); // Only super admin can modify transactions
+    }
+    
+    // App settings and configuration
+    match /app_settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSuperAdmin();
+    }
+    
+    // Analytics data
+    match /analytics/{document=**} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated(); // Users can create analytics events
+      allow update, delete: if isSuperAdmin();
+    }
+    
+    // User feedback and support tickets
+    match /support_tickets/{ticketId} {
+      allow read, write: if isAuthenticated() && 
+        (isOwner(resource.data.userId) || resource == null);
+      allow read, update: if isSupport();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // App content (educational content, stories, etc.)
+    match /content/{contentId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isContentManager();
+    }
+    
+    // Content categories
+    match /content_categories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isContentManager();
+    }
+    
+    // Parental controls and settings
+    match /parental_controls/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAdmin();
+      allow update: if isSupport();
+    }
+    
+    // Device information for analytics
+    match /device_info/{deviceId} {
+      allow read, write: if isAuthenticated();
+      allow read: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Error logs and crash reports
+    match /error_logs/{logId} {
+      allow create: if isAuthenticated();
+      allow read, delete: if isAdmin();
+    }
+    
+    // Notifications and announcements
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // User notifications (individual)
+    match /user_notifications/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAdmin();
+      allow create: if isAdmin(); // Admins can send notifications
+    }
+    
+    // App reviews and ratings
+    match /app_reviews/{reviewId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(resource.data.userId);
+      allow update: if isAuthenticated() && isOwner(resource.data.userId);
+      allow delete: if isAdmin();
+    }
+    
+    // Age group configurations
+    match /age_groups/{ageGroupId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isContentManager();
+    }
+    
+    // Learning paths and curriculum
+    match /learning_paths/{pathId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isContentManager();
+    }
+    
+    // Backup and restore data (admin only)
+    match /backups/{backupId} {
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // System monitoring and health checks
+    match /system_health/{document=**} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Default deny rule - explicitly deny access to any unmatched paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
