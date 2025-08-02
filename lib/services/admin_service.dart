@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'admin_security_utils.dart';
 
 enum AdminRole {
   superAdmin,    // Full access to everything
@@ -58,6 +59,12 @@ class AdminService {
     }
   }
 
+  /// Check if the current user is a super admin
+  static bool isSuperAdmin([String? email]) {
+    final role = getAdminRole(email);
+    return role == AdminRole.superAdmin;
+  }
+
   /// Get admin user info
   Future<AdminUserInfo?> getAdminUserInfo() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -106,7 +113,12 @@ class AdminService {
     int limit = 50,
     DocumentSnapshot? startAfter,
   }) async {
-    if (!hasAdminPrivilege(AdminPrivilege.userManagement)) {
+    // Enhanced security check with logging
+    if (!await AdminSecurityUtils.checkPrivilegeWithRateLimit(
+      AdminPrivilege.userManagement,
+      'get_all_users',
+      'users',
+    )) {
       throw Exception('Insufficient privileges for user management');
     }
 
@@ -118,11 +130,25 @@ class AdminService {
       }
 
       final snapshot = await query.get();
-      return snapshot.docs.map((doc) => {
+      final users = snapshot.docs.map((doc) => {
         'id': doc.id,
         ...doc.data() as Map<String, dynamic>,
       }).toList();
+
+      // Log the admin action
+      await AdminSecurityUtils.logAdminAction(
+        action: 'get_all_users',
+        resourceType: 'users',
+        additionalData: {'count': users.length, 'limit': limit},
+      );
+
+      return users;
     } catch (e) {
+      await AdminSecurityUtils.logAdminAction(
+        action: 'get_all_users_failed',
+        resourceType: 'users',
+        additionalData: {'error': e.toString()},
+      );
       print('Error getting all users: $e');
       throw Exception('Failed to fetch users');
     }
@@ -130,7 +156,12 @@ class AdminService {
 
   /// Get user statistics for admin dashboard
   Future<AdminDashboardStats> getDashboardStats() async {
-    if (!hasAdminPrivilege(AdminPrivilege.analytics)) {
+    // Enhanced security check with logging
+    if (!await AdminSecurityUtils.checkPrivilegeWithRateLimit(
+      AdminPrivilege.analytics,
+      'get_dashboard_stats',
+      'analytics',
+    )) {
       throw Exception('Insufficient privileges for analytics');
     }
 
@@ -158,17 +189,165 @@ class AdminService {
       final sessionsSnapshot = await _firestore.collection('game_sessions').get();
       final totalSessions = sessionsSnapshot.size;
 
-      return AdminDashboardStats(
+      final stats = AdminDashboardStats(
         totalUsers: totalUsers,
         activeUsers: activeUsers,
         premiumUsers: premiumUsers,
         totalSessions: totalSessions,
         lastUpdated: DateTime.now(),
       );
+
+      // Log the admin action
+      await AdminSecurityUtils.logAdminAction(
+        action: 'get_dashboard_stats',
+        resourceType: 'analytics',
+        additionalData: {
+          'totalUsers': totalUsers,
+          'activeUsers': activeUsers,
+          'premiumUsers': premiumUsers,
+          'totalSessions': totalSessions,
+        },
+      );
+
+      return stats;
     } catch (e) {
+      await AdminSecurityUtils.logAdminAction(
+        action: 'get_dashboard_stats_failed',
+        resourceType: 'analytics',
+        additionalData: {'error': e.toString()},
+      );
       print('Error getting dashboard stats: $e');
       throw Exception('Failed to fetch dashboard statistics');
     }
+  }
+
+  /// Update user data (admin only)
+  Future<void> updateUserData(String userId, Map<String, dynamic> data) async {
+    if (!await AdminSecurityUtils.checkPrivilegeWithRateLimit(
+      AdminPrivilege.userManagement,
+      'update_user_data',
+      'users',
+      userId,
+    )) {
+      throw Exception('Insufficient privileges for user management');
+    }
+
+    try {
+      // Get current data for audit trail
+      final currentDoc = await _firestore.collection('users').doc(userId).get();
+      final beforeState = currentDoc.exists ? currentDoc.data() : null;
+
+      await _firestore.collection('users').doc(userId).update(data);
+
+      // Record audit trail
+      await AdminAuditTrail.recordAction(
+        action: 'update_user_data',
+        targetResource: 'users',
+        targetUserId: userId,
+        beforeState: beforeState,
+        afterState: data,
+      );
+
+      await AdminSecurityUtils.logAdminAction(
+        action: 'update_user_data',
+        resourceType: 'users',
+        resourceId: userId,
+        additionalData: {'updatedFields': data.keys.toList()},
+      );
+    } catch (e) {
+      await AdminSecurityUtils.logAdminAction(
+        action: 'update_user_data_failed',
+        resourceType: 'users',
+        resourceId: userId,
+        additionalData: {'error': e.toString()},
+      );
+      throw Exception('Failed to update user data');
+    }
+  }
+
+  /// Delete user account (super admin only)
+  Future<void> deleteUser(String userId, String reason) async {
+    if (!isSuperAdmin()) {
+      throw Exception('Only super admin can delete user accounts');
+    }
+
+    if (!await AdminSecurityUtils.checkPrivilegeWithRateLimit(
+      AdminPrivilege.userManagement,
+      'delete_user',
+      'users',
+      userId,
+    )) {
+      throw Exception('Rate limit exceeded for user deletion');
+    }
+
+    try {
+      // Get user data before deletion for audit
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final userData = userDoc.exists ? userDoc.data() : null;
+
+      // Delete user data
+      await _firestore.collection('users').doc(userId).delete();
+
+      // Record audit trail
+      await AdminAuditTrail.recordAction(
+        action: 'delete_user',
+        targetResource: 'users',
+        targetUserId: userId,
+        beforeState: userData,
+        reason: reason,
+      );
+
+      await AdminSecurityUtils.logAdminAction(
+        action: 'delete_user',
+        resourceType: 'users',
+        resourceId: userId,
+        additionalData: {'reason': reason},
+      );
+    } catch (e) {
+      await AdminSecurityUtils.logAdminAction(
+        action: 'delete_user_failed',
+        resourceType: 'users',
+        resourceId: userId,
+        additionalData: {'error': e.toString(), 'reason': reason},
+      );
+      throw Exception('Failed to delete user');
+    }
+  }
+
+  /// Get security logs (super admin only)
+  Future<List<Map<String, dynamic>>> getSecurityLogs({
+    DateTime? startDate,
+    DateTime? endDate,
+    int limit = 100,
+  }) async {
+    if (!isSuperAdmin()) {
+      throw Exception('Only super admin can view security logs');
+    }
+
+    return await AdminSecurityUtils.getSecurityLogs(
+      startDate: startDate,
+      endDate: endDate,
+      limit: limit,
+    );
+  }
+
+  /// Get audit trail (super admin only)
+  Future<List<Map<String, dynamic>>> getAuditTrail({
+    String? targetUserId,
+    DateTime? startDate,
+    DateTime? endDate,
+    int limit = 50,
+  }) async {
+    if (!isSuperAdmin()) {
+      throw Exception('Only super admin can view audit trail');
+    }
+
+    return await AdminAuditTrail.getAuditTrail(
+      targetUserId: targetUserId,
+      startDate: startDate,
+      endDate: endDate,
+      limit: limit,
+    );
   }
 }
 
