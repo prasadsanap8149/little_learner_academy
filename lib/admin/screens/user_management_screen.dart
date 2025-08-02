@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/admin_service.dart';
 import '../widgets/admin_app_bar.dart';
+import '../widgets/user_role_management_widget.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -179,11 +180,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             ),
                           )
                         : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
                             itemCount: _filteredUsers.length,
                             itemBuilder: (context, index) {
                               final user = _filteredUsers[index];
-                              return _buildUserCard(user);
+                              return UserRoleManagementWidget(
+                                user: user,
+                                onRoleUpdated: _loadUsers,
+                              );
                             },
                           ),
               ),
