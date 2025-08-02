@@ -19,7 +19,7 @@ class AdminService {
   // Admin email addresses with their roles
   static const Map<String, AdminRole> adminEmails = {
     'admin@littlelearnersacademy.com': AdminRole.superAdmin,
-    'prasad@littlelearnersacademy.com': AdminRole.superAdmin,
+    'sanapprasad2021@gmail.com': AdminRole.superAdmin,
     'content@littlelearnersacademy.com': AdminRole.contentManager,
     'support@littlelearnersacademy.com': AdminRole.support,
     // Add more admin emails as needed
@@ -399,7 +399,7 @@ class AdminService {
       if (uid == null) return null;
 
       final doc = await FirebaseFirestore.instance
-          .collection('users')
+          .collection('admin_users')
           .doc(uid)
           .get();
 

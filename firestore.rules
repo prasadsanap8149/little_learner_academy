@@ -233,5 +233,13 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if false;
     }
+
+    // Security logs collection (only admins can write)
+    match /security_logs/{logId} {
+      allow create: if isAdmin(); // only admins can create logs
+      allow read: if isSuperAdmin(); // optional: only super admins can view logs
+      allow delete: if isSuperAdmin();
+    }
+
   }
 }
