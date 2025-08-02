@@ -431,7 +431,7 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
                 ),
                 const SizedBox(width: 8),
                 _buildInfoChip(
-                  Icons.difficulty,
+                  Icons.signal_cellular_alt_2_bar,
                   game['difficulty'],
                   Colors.orange,
                 ),

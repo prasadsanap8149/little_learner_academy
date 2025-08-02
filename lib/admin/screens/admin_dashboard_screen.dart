@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../services/admin_service.dart';
+import '../../services/admin_service.dart';
 import '../widgets/admin_app_bar.dart';
 import '../widgets/admin_stats_cards.dart';
 import '../widgets/admin_quick_actions.dart';
