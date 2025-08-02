@@ -88,7 +88,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     var achievements = _selectedCategory == 'All' 
         ? _achievementService.userAchievements
         : _achievementService.userAchievements.where((a) => 
-            a.category.toString().split('.').last.toLowerCase() == _selectedCategory.toLowerCase()).toList();
+            a.category.name.toLowerCase() == _selectedCategory.toLowerCase()).toList();
     
     if (_showUnlockedOnly) {
       achievements = achievements.where((a) => a.isUnlocked).toList();
@@ -330,7 +330,6 @@ class _AchievementsScreenState extends State<AchievementsScreen>
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
     
     // Enhanced responsive breakpoints
     final isPhone = screenWidth < 600;
