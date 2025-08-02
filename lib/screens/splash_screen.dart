@@ -73,8 +73,17 @@ class _SplashScreenState extends State<SplashScreen>
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
     
     if (authService.isAuthenticated) {
-      // Check if user is an admin first
-      if (AdminService.isAdminUser()) {
+      // Check if user is an admin (both hardcoded and Firebase roles)
+      bool isAdmin = AdminService.isAdminUser();
+      
+      // If not in hardcoded admin list, check Firebase role
+      if (!isAdmin) {
+        final firebaseRole = await AdminService.getUserRoleFromFirebase();
+        isAdmin = firebaseRole != null && 
+                 ['super_admin', 'content_manager', 'support', 'admin'].contains(firebaseRole.toLowerCase());
+      }
+      
+      if (isAdmin) {
         // Navigate to admin dashboard
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
