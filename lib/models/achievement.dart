@@ -1,5 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum AchievementCategory {
+  math,
+  language,
+  science,
+  general,
+  special
+}
+
 enum AchievementType {
   firstGame,      // Complete first game
   streakMaster,   // 5 games in a row
@@ -26,8 +34,10 @@ class Achievement {
   final DateTime? unlockedAt;
   final int progress;
   final int maxProgress;
+  final AchievementCategory category;
+  final String? gameId;
 
-  const Achievement({
+  Achievement({
     required this.id,
     required this.type,
     required this.title,
@@ -38,6 +48,8 @@ class Achievement {
     this.unlockedAt,
     this.progress = 0,
     required this.maxProgress,
+    required this.category,
+    this.gameId,
   });
 
   factory Achievement.fromFirestore(DocumentSnapshot doc) {
@@ -58,6 +70,11 @@ class Achievement {
           : null,
       progress: data['progress'] ?? 0,
       maxProgress: data['maxProgress'] ?? 1,
+      category: AchievementCategory.values.firstWhere(
+        (e) => e.toString() == 'AchievementCategory.${data['category']}',
+        orElse: () => AchievementCategory.general,
+      ),
+      gameId: data['gameId'],
     );
   }
 
@@ -72,6 +89,8 @@ class Achievement {
       'unlockedAt': unlockedAt,
       'progress': progress,
       'maxProgress': maxProgress,
+      'category': category.toString().split('.').last,
+      'gameId': gameId,
     };
   }
 
@@ -91,15 +110,16 @@ class Achievement {
       unlockedAt: unlockedAt ?? this.unlockedAt,
       progress: progress ?? this.progress,
       maxProgress: maxProgress,
+      category: category,
+      gameId: gameId,
     );
   }
 
   double get progressPercentage => maxProgress > 0 ? progress / maxProgress : 0.0;
 
-  // Static method to create default achievements
   static List<Achievement> getDefaultAchievements() {
     return [
-      const Achievement(
+      Achievement(
         id: 'first_game',
         type: AchievementType.firstGame,
         title: 'First Steps',
@@ -107,8 +127,9 @@ class Achievement {
         icon: '🌟',
         points: 10,
         maxProgress: 1,
+        category: AchievementCategory.general,
       ),
-      const Achievement(
+      Achievement(
         id: 'streak_master',
         type: AchievementType.streakMaster,
         title: 'Streak Master',
@@ -116,17 +137,19 @@ class Achievement {
         icon: '🔥',
         points: 50,
         maxProgress: 5,
+        category: AchievementCategory.special,
       ),
-      const Achievement(
+      Achievement(
         id: 'math_expert',
         type: AchievementType.subjectExpert,
         title: 'Math Expert',
         description: 'Complete all math games',
         icon: '🧮',
         points: 100,
-        maxProgress: 8, // Adjust based on actual math games count
+        maxProgress: 8,
+        category: AchievementCategory.math,
       ),
-      const Achievement(
+      Achievement(
         id: 'speed_runner',
         type: AchievementType.speedRunner,
         title: 'Speed Runner',
@@ -134,8 +157,9 @@ class Achievement {
         icon: '⚡',
         points: 30,
         maxProgress: 1,
+        category: AchievementCategory.special,
       ),
-      const Achievement(
+      Achievement(
         id: 'perfectionist',
         type: AchievementType.perfectionist,
         title: 'Perfectionist',
@@ -143,17 +167,19 @@ class Achievement {
         icon: '⭐',
         points: 75,
         maxProgress: 10,
+        category: AchievementCategory.special,
       ),
-      const Achievement(
+      Achievement(
         id: 'explorer',
         type: AchievementType.explorer,
         title: 'Explorer',
         description: 'Try all game types',
         icon: '🗺️',
         points: 40,
-        maxProgress: 4, // Math, Language, Science, General Knowledge
+        maxProgress: 4,
+        category: AchievementCategory.general,
       ),
-      const Achievement(
+      Achievement(
         id: 'dedication',
         type: AchievementType.dedication,
         title: 'Dedication',
@@ -161,8 +187,9 @@ class Achievement {
         icon: '📅',
         points: 60,
         maxProgress: 7,
+        category: AchievementCategory.special,
       ),
-      const Achievement(
+      Achievement(
         id: 'math_wizard',
         type: AchievementType.mathWizard,
         title: 'Math Wizard',
@@ -170,8 +197,9 @@ class Achievement {
         icon: '🧙‍♂️',
         points: 150,
         maxProgress: 8,
+        category: AchievementCategory.math,
       ),
-      const Achievement(
+      Achievement(
         id: 'word_master',
         type: AchievementType.wordMaster,
         title: 'Word Master',
@@ -179,8 +207,9 @@ class Achievement {
         icon: '📚',
         points: 150,
         maxProgress: 8,
+        category: AchievementCategory.language,
       ),
-      const Achievement(
+      Achievement(
         id: 'scientist',
         type: AchievementType.scientist,
         title: 'Young Scientist',
@@ -188,8 +217,9 @@ class Achievement {
         icon: '🔬',
         points: 150,
         maxProgress: 6,
+        category: AchievementCategory.science,
       ),
-      const Achievement(
+      Achievement(
         id: 'scholar',
         type: AchievementType.scholar,
         title: 'Scholar',
@@ -197,8 +227,9 @@ class Achievement {
         icon: '🎓',
         points: 150,
         maxProgress: 6,
+        category: AchievementCategory.general,
       ),
-      const Achievement(
+      Achievement(
         id: 'young_learner',
         type: AchievementType.youngLearner,
         title: 'Young Learner',
@@ -206,6 +237,7 @@ class Achievement {
         icon: '👶',
         points: 200,
         maxProgress: 3,
+        category: AchievementCategory.general,
       ),
     ];
   }
