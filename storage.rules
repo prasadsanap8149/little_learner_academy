@@ -1,0 +1,113 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserEmail() {
+      return request.auth.token.email;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        getUserEmail() == 'admin@littlelearnersacademy.com' ||
+        getUserEmail() == 'prasad@littlelearnersacademy.com' ||
+        getUserEmail() == 'content@littlelearnersacademy.com' ||
+        getUserEmail() == 'support@littlelearnersacademy.com'
+      );
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        getUserEmail() == 'admin@littlelearnersacademy.com' ||
+        getUserEmail() == 'prasad@littlelearnersacademy.com'
+      );
+    }
+    
+    function isContentManager() {
+      return isAuthenticated() && (
+        getUserEmail() == 'content@littlelearnersacademy.com' ||
+        isSuperAdmin()
+      );
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // User profile pictures
+    match /user_profiles/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isSuperAdmin();
+    }
+    
+    // Game assets (images, sounds, videos)
+    match /game_assets/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isContentManager();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Educational content assets
+    match /content_assets/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isContentManager();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Achievement badges and icons
+    match /achievement_assets/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isContentManager();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // App assets (themes, backgrounds, etc.)
+    match /app_assets/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isContentManager();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // User generated content (drawings, recordings, etc.)
+    match /user_content/{userId}/{allPaths=**} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId);
+      allow delete: if isOwner(userId) || isSuperAdmin();
+    }
+    
+    // Backup files (admin only)
+    match /backups/{allPaths=**} {
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // System logs and crash reports
+    match /logs/{allPaths=**} {
+      allow read: if isAdmin();
+      allow write: if isAuthenticated(); // Users can upload crash reports
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Temporary files (24 hour auto-cleanup)
+    match /temp/{allPaths=**} {
+      allow read, write: if isAuthenticated() && 
+        request.time < (resource != null ? resource.timeCreated + duration.value(1, 'd') : request.time + duration.value(1, 'd'));
+      allow delete: if isAuthenticated();
+    }
+    
+    // Public assets (accessible to all)
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if isContentManager();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Default deny rule
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
