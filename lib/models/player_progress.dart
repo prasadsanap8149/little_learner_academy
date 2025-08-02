@@ -72,12 +72,14 @@ class CategoryProgress {
   final Map<String, LevelProgress> levels; // levelId -> progress
   final int unlockedLevels;
   final AgeGroup currentAgeGroup;
+  final int totalStars;
 
   const CategoryProgress({
     required this.categoryId,
     required this.levels,
     required this.unlockedLevels,
     required this.currentAgeGroup,
+    this.totalStars = 0,
   });
 
   bool isLevelUnlocked(String levelId) {
@@ -90,12 +92,14 @@ class CategoryProgress {
     Map<String, LevelProgress>? levels,
     int? unlockedLevels,
     AgeGroup? currentAgeGroup,
+    int? totalStars,
   }) {
     return CategoryProgress(
       categoryId: categoryId ?? this.categoryId,
       levels: levels ?? this.levels,
       unlockedLevels: unlockedLevels ?? this.unlockedLevels,
       currentAgeGroup: currentAgeGroup ?? this.currentAgeGroup,
+      totalStars: totalStars ?? this.totalStars,
     );
   }
 
@@ -104,6 +108,7 @@ class CategoryProgress {
         'levels': levels.map((key, value) => MapEntry(key, value.toJson())),
         'unlockedLevels': unlockedLevels,
         'currentAgeGroup': currentAgeGroup.toString(),
+        'totalStars': totalStars,
       };
 
   factory CategoryProgress.fromJson(Map<String, dynamic> json) =>
@@ -116,6 +121,7 @@ class CategoryProgress {
           (e) => e.toString() == json['currentAgeGroup'],
           orElse: () => AgeGroup.littleTots,
         ),
+        totalStars: json['totalStars'] ?? 0,
       );
 }
 
@@ -279,7 +285,7 @@ class PlayerProgress {
 
         final updatedCategoryProgress = categoryProgress.copyWith(
           levels: updatedLevels,
-          totalStars: updatedLevels.values.fold(0, (sum, level) => sum + level.stars),
+          totalStars: updatedLevels.values.fold<int>(0, (sum, level) => sum + level.stars),
         );
 
         updatedCategories[targetCategoryId] = updatedCategoryProgress;
@@ -288,7 +294,7 @@ class PlayerProgress {
 
     // Calculate new total stars
     final newTotalStars = updatedCategories.values
-        .fold(0, (sum, category) => sum + category.totalStars);
+        .fold<int>(0, (sum, category) => sum + category.totalStars);
 
     return copyWith(
       categories: updatedCategories,
