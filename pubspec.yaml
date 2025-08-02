@@ -48,6 +48,9 @@ dependencies:
   encrypt: ^5.0.3
   flutter_secure_storage: ^10.0.0-beta.4
 
+  # Connectivity
+  connectivity_plus: ^6.0.3
+
   # SVG Support
   flutter_svg: ^2.0.10
 
