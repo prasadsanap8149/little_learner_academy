@@ -253,7 +253,7 @@ class AchievementService {
   int getTotalPoints() {
     return _userAchievements
         .where((achievement) => achievement.isUnlocked)
-        .fold(0, (total, achievement) => total + achievement.points);
+        .fold<int>(0, (total, achievement) => total + achievement.points);
   }
 
   int getUnlockedCount() {
@@ -303,12 +303,12 @@ class AchievementService {
     
     // First, try to get a recently unlocked high-value achievement
     final recentHighValue = _userAchievements
-        .where((a) => a.isUnlocked && a.pointValue >= 50)
+        .where((a) => a.isUnlocked && a.points >= 50)
         .toList();
     
     if (recentHighValue.isNotEmpty) {
       recentHighValue.sort((a, b) {
-        if (a.unlockedAt == null && b.unlockedAt == null) return b.pointValue.compareTo(a.pointValue);
+        if (a.unlockedAt == null && b.unlockedAt == null) return b.points.compareTo(a.points);
         if (a.unlockedAt == null) return 1;
         if (b.unlockedAt == null) return -1;
         return b.unlockedAt!.compareTo(a.unlockedAt!);
@@ -318,7 +318,7 @@ class AchievementService {
     
     // Otherwise, get the highest value achievement
     final sorted = List<Achievement>.from(_userAchievements)
-      ..sort((a, b) => b.pointValue.compareTo(a.pointValue));
+      ..sort((a, b) => b.points.compareTo(a.points));
     return sorted.first;
   }
 
@@ -326,7 +326,7 @@ class AchievementService {
   List<Achievement> getAchievementsByCategory(String category) {
     if (category == 'All') return _userAchievements;
     return _userAchievements
-        .where((achievement) => achievement.category == category)
+        .where((achievement) => achievement.category.name == category.toLowerCase())
         .toList();
   }
 
@@ -338,7 +338,7 @@ class AchievementService {
     
     final progress = <String, double>{};
     for (final achievement in gameAchievements) {
-      progress[achievement.id] = achievement.currentProgress / achievement.targetValue;
+      progress[achievement.id] = achievement.progress / achievement.maxProgress;
     }
     
     return progress;
@@ -392,12 +392,11 @@ class AchievementService {
       
       // Update progress
       final updatedAchievement = achievement.copyWith(
-        currentProgress: progress,
         progress: progress,
       );
       
       // Check if achievement should be unlocked
-      if (!achievement.isUnlocked && progress >= achievement.targetValue) {
+      if (!achievement.isUnlocked && progress >= achievement.maxProgress) {
         final unlockedAchievement = updatedAchievement.copyWith(
           isUnlocked: true,
           unlockedAt: DateTime.now(),
@@ -414,11 +413,11 @@ class AchievementService {
             .doc(achievementId)
             .update(unlockedAchievement.toFirestore());
         
-        // Play achievement sound
-        await _soundService.playAchievementSound();
+        // Play achievement sound - placeholder until SoundService is enhanced
+        // await _soundService.playAchievementSound();
         
         print('Achievement unlocked: ${achievement.title}');
-      } else if (achievement.currentProgress != progress) {
+      } else if (achievement.progress != progress) {
         // Update progress only
         _userAchievements[achievementIndex] = updatedAchievement;
         
@@ -427,7 +426,7 @@ class AchievementService {
             .doc(userId)
             .collection('achievements')
             .doc(achievementId)
-            .update({'currentProgress': progress, 'progress': progress});
+            .update({'progress': progress});
       }
     } catch (e) {
       print('Error checking achievement $achievementId: $e');
