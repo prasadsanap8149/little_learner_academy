@@ -246,4 +246,54 @@ class PlayerProgress {
 
   /// Returns a set of completed level IDs for achievement checking
   Set<String> get completedLevelsSet => completedLevels.toSet();
+
+  /// Update game progress for a specific level
+  PlayerProgress updateGameProgress(String levelId, int score, int stars) {
+    final updatedCategories = Map<String, CategoryProgress>.from(categories);
+
+    // Find which category this level belongs to
+    String? targetCategoryId;
+    for (final entry in categories.entries) {
+      if (entry.value.levels.containsKey(levelId)) {
+        targetCategoryId = entry.key;
+        break;
+      }
+    }
+
+    if (targetCategoryId != null) {
+      final categoryProgress = updatedCategories[targetCategoryId]!;
+      final currentLevel = categoryProgress.levels[levelId];
+
+      if (currentLevel != null) {
+        // Update level progress
+        final updatedLevel = currentLevel.copyWith(
+          highScore: score > currentLevel.highScore ? score : currentLevel.highScore,
+          stars: stars > currentLevel.stars ? stars : currentLevel.stars,
+          isCompleted: true,
+          lastPlayed: DateTime.now(),
+        );
+
+        // Update category progress
+        final updatedLevels = Map<String, LevelProgress>.from(categoryProgress.levels);
+        updatedLevels[levelId] = updatedLevel;
+
+        final updatedCategoryProgress = categoryProgress.copyWith(
+          levels: updatedLevels,
+          totalStars: updatedLevels.values.fold(0, (sum, level) => sum + level.stars),
+        );
+
+        updatedCategories[targetCategoryId] = updatedCategoryProgress;
+      }
+    }
+
+    // Calculate new total stars
+    final newTotalStars = updatedCategories.values
+        .fold(0, (sum, category) => sum + category.totalStars);
+
+    return copyWith(
+      categories: updatedCategories,
+      totalStars: newTotalStars,
+      lastPlayed: DateTime.now(),
+    );
+  }
 }
