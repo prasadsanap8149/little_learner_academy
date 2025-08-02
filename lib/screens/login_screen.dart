@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
 import '../services/game_provider.dart';
+import '../services/admin_service.dart';
+import '../admin/screens/admin_dashboard_screen.dart';
 import 'home_screen.dart';
 import 'user_setup_screen.dart';
 
@@ -186,6 +188,15 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _navigateAfterAuth() async {
     try {
+      // Check if user is an admin first
+      if (AdminService.isAdminUser()) {
+        // Navigate to admin dashboard
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+        );
+        return;
+      }
+      
       // Check if user setup is completed using the improved method
       final setupCompleted = await _authService.isUserSetupCompleted();
 
