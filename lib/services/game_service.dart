@@ -5,23 +5,39 @@ import 'dart:convert';
 import '../models/player_progress.dart';
 import '../models/game_level.dart';
 import '../models/age_group.dart';
+import 'offline_service.dart';
 
 class GameService {
   static const String _playerKey = 'player_progress';
   static const String _currentPlayerKey = 'current_player_id';
+  static const String _offlineScoresKey = 'offline_scores';
+  static const String _offlineProgressKey = 'offline_progress';
 
   late SharedPreferences _prefs;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final OfflineService _offlineService = OfflineService();
+  final OfflineManager _offlineManager = OfflineManager();
   PlayerProgress? _currentPlayer;
 
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
+    await _offlineService.initialize();
     await _loadCurrentPlayer();
+    await _loadOfflineData();
+    
+    // Listen for connectivity changes to sync offline data
+    _offlineService.connectivityStream.listen((isOnline) {
+      if (isOnline) {
+        _syncOfflineData();
+      }
+    });
   }
 
   PlayerProgress? get currentPlayer => _currentPlayer;
+  bool get isOnline => _offlineService.isOnline;
 
+  // Enhanced player creation with offline support
   Future<void> createPlayer(String name, int age) async {
     final playerId = DateTime.now().millisecondsSinceEpoch.toString();
     _currentPlayer = PlayerProgress.newPlayer(
@@ -32,702 +48,167 @@ class GameService {
 
     await _saveCurrentPlayer();
     await _prefs.setString(_currentPlayerKey, playerId);
-  }
-
-  Future<void> _loadCurrentPlayer() async {
-    final playerId = _prefs.getString(_currentPlayerKey);
-    if (playerId != null) {
-      final playerData = _prefs.getString('${_playerKey}_$playerId');
-      if (playerData != null) {
-        _currentPlayer = PlayerProgress.fromJson(json.decode(playerData));
-      }
-    }
-  }
-
-  Future<void> _saveCurrentPlayer() async {
-    if (_currentPlayer != null) {
-      // Save to local storage
-      final playerData = json.encode(_currentPlayer!.toJson());
-      await _prefs.setString(
-          '${_playerKey}_${_currentPlayer!.playerId}', playerData);
-      
-      // Save to Firebase if user is authenticated
-      await _saveProgressToFirebase();
-    }
-  }
-
-  Future<void> _saveProgressToFirebase() async {
-    if (_auth.currentUser == null || _currentPlayer == null) return;
     
-    try {
-      final progressRef = _firestore
-          .collection('users')
-          .doc(_auth.currentUser!.uid)
-          .collection('progress')
-          .doc('player_data');
-      
-      final progressData = {
-        'playerName': _currentPlayer!.playerName,
-        'playerAge': _currentPlayer!.age,
-        'totalStars': _currentPlayer!.totalStars,
-        'playerId': _currentPlayer!.playerId,
-        'lastPlayed': Timestamp.fromDate(_currentPlayer!.lastPlayed),
-        'achievements': _currentPlayer!.achievements,
-        'highestUnlockedAgeGroup': _currentPlayer!.highestUnlockedAgeGroup.toString(),
-        'categories': _currentPlayer!.categories.map((key, value) => MapEntry(key, {
-          'categoryId': value.categoryId,
-          'unlockedLevels': value.unlockedLevels,
-          'currentAgeGroup': value.currentAgeGroup.toString(),
-          'levels': value.levels.map((levelKey, level) => MapEntry(levelKey, {
-            'levelId': level.levelId,
-            'stars': level.stars,
-            'highScore': level.highScore,
-            'isCompleted': level.isCompleted,
-            'lastPlayed': level.lastPlayed != null 
-                ? Timestamp.fromDate(level.lastPlayed!) 
-                : null,
-          })),
-        })),
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-      
-      await progressRef.set(progressData, SetOptions(merge: true));
-      print('Player progress saved to Firebase successfully');
-    } catch (e) {
-      print('Error saving progress to Firebase: $e');
-      // Don't throw error to avoid breaking local functionality
+    // Cache player data for offline access
+    _offlineManager.cacheData('current_player', _currentPlayer!.toJson());
+  }
+
+  // Load offline cached data
+  Future<void> _loadOfflineData() async {
+    final cachedPlayer = _offlineManager.getCachedData<Map<String, dynamic>>('current_player');
+    if (cachedPlayer != null && _currentPlayer == null) {
+      _currentPlayer = PlayerProgress.fromJson(cachedPlayer);
     }
   }
 
-  // Manual sync method for periodic syncing
-  Future<void> syncProgressToFirebase() async {
-    await _saveProgressToFirebase();
-  }
-
-  // Method to check if Firebase sync is available
-  bool get canSyncToFirebase => _auth.currentUser != null && _currentPlayer != null;
-
-  Future<void> updateLevelScore(String levelId, int score) async {
-    if (_currentPlayer != null) {
-      // Parse category ID from level ID (format: "category_name_number")
-      final categoryId = levelId.split('_').take(2).join('_');
-
-      // Get current categories map
-      final categories =
-          Map<String, CategoryProgress>.from(_currentPlayer!.categories);
-
-      // Get or create category progress
-      final categoryProgress = categories[categoryId] ??
-          CategoryProgress(
-            categoryId: categoryId,
-            levels: {},
-            unlockedLevels: 1,
-            currentAgeGroup: AgeGroup.fromAge(_currentPlayer!.age),
-          );
-
-      // Update levels map for the category
-      final levels = Map<String, LevelProgress>.from(categoryProgress.levels);
-
-      // Calculate stars (assuming max score of 100 per level)
-      int stars = (score / 33.33).ceil().clamp(0, 3); // 3 stars max per level
-
-      // Update or create level progress
-      levels[levelId] = LevelProgress(
-        levelId: levelId,
-        stars: stars,
-        highScore: score,
-        isCompleted: true,
-        lastPlayed: DateTime.now(),
-      );
-
-      // Update category with new levels
-      categories[categoryId] = categoryProgress.copyWith(levels: levels);
-
-      // Calculate total stars across all categories and levels
-      int totalStars = categories.values
-          .expand((cat) => cat.levels.values)
-          .fold(0, (sum, level) => sum + level.stars);
-
-      _currentPlayer = _currentPlayer!.copyWith(
-        categories: categories,
-        totalStars: totalStars,
-        lastPlayed: DateTime.now(),
-      );
-
-      await _saveCurrentPlayer();
-    }
-  }
-
-  Future<void> addAchievement(String achievement) async {
-    if (_currentPlayer != null &&
-        !_currentPlayer!.achievements.contains(achievement)) {
-      final achievements = List<String>.from(_currentPlayer!.achievements);
-      achievements.add(achievement);
-
-      _currentPlayer = _currentPlayer!.copyWith(
-        achievements: achievements,
-        lastPlayed: DateTime.now(),
-      );
-
-      await _saveCurrentPlayer();
-
-      // Check if achievement unlocks a new age group
-      _checkAndUpdateAgeGroupProgress();
-    }
-  }
-
-  void _checkAndUpdateAgeGroupProgress() {
+  // Save game progress with offline support
+  Future<void> saveGameProgress({
+    required String gameId,
+    required int level,
+    required int score,
+    required int timeSpent,
+    bool completed = false,
+  }) async {
     if (_currentPlayer == null) return;
 
-    // Example logic - can be customized based on game requirements
-    final currentAgeGroup = AgeGroup.fromAge(_currentPlayer!.age);
-    final achievementCount = _currentPlayer!.achievements.length;
-    final totalStars = _currentPlayer!.totalStars;
-
-    // Unlock next age group if player has enough achievements and stars
-    if (currentAgeGroup != AgeGroup.youngScholars &&
-        achievementCount >= 5 &&
-        totalStars >= 50 &&
-        currentAgeGroup.index < _currentPlayer!.highestUnlockedAgeGroup.index) {
-      final nextAgeGroup = AgeGroup.values[currentAgeGroup.index + 1];
-      _currentPlayer = _currentPlayer!.copyWith(
-        highestUnlockedAgeGroup: nextAgeGroup,
-      );
-    }
-  }
-
-  List<GameLevel> getAvailableLevels() {
-    if (_currentPlayer == null) return [];
-
-    final ageGroup = AgeGroup.fromAge(_currentPlayer!.age);
-    return _generateLevelsForAgeGroup(ageGroup);
-  }
-
-  List<GameLevel> _generateLevelsForAgeGroup(AgeGroup ageGroup) {
-    List<GameLevel> levels = [];
-
-    // Math levels
-    levels.addAll(_generateMathLevels(ageGroup));
-
-    // Language levels
-    levels.addAll(_generateLanguageLevels(ageGroup));
-
-    // Science levels
-    levels.addAll(_generateScienceLevels(ageGroup));
-
-    // General levels
-    levels.addAll(_generateGeneralLevels(ageGroup));
-
-    return levels;
-  }
-
-  List<GameLevel> _generateMathLevels(AgeGroup ageGroup) {
-    switch (ageGroup) {
-      case AgeGroup.littleTots:
-        return [
-          GameLevel(
-            id: 'math_count_1',
-            title: 'Count the Animals',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Count objects 1-5', 'Recognize numbers'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-          GameLevel(
-            id: 'math_count_2',
-            title: 'More Counting Fun',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Count objects 1-10', 'Number recognition'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'math_shapes_1',
-            title: 'Shape Safari',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.puzzle,
-            difficulty: 1,
-            objectives: ['Identify basic shapes', 'Match shapes'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'math_sizes_1',
-            title: 'Big and Small',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Compare sizes', 'Size recognition'],
-            maxScore: 100,
-          ),
-        ];
-
-      case AgeGroup.smartKids:
-        return [
-          GameLevel(
-            id: 'math_count_1',
-            title: 'Count Everything',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Count objects 1-20', 'Number patterns'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-          GameLevel(
-            id: 'math_add_1',
-            title: 'Addition Adventure',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.adventure,
-            difficulty: 2,
-            objectives: ['Simple addition', 'Number bonds'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'math_subtract_1',
-            title: 'Subtraction Space',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.quiz,
-            difficulty: 2,
-            objectives: ['Basic subtraction', 'Problem solving'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'math_patterns_1',
-            title: 'Pattern Detective',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.puzzle,
-            difficulty: 2,
-            objectives: ['Number patterns', 'Sequence completion'],
-            maxScore: 100,
-          ),
-        ];
-
-      case AgeGroup.youngScholars:
-        return [
-          GameLevel(
-            id: 'math_count_1',
-            title: 'Advanced Counting',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Count objects 1-50', 'Skip counting'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-          GameLevel(
-            id: 'math_multiply_1',
-            title: 'Multiplication Mountain',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.adventure,
-            difficulty: 3,
-            objectives: ['Times tables', 'Mental math'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'math_fraction_1',
-            title: 'Fraction Fortress',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.puzzle,
-            difficulty: 4,
-            objectives: ['Understand fractions', 'Compare fractions'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'math_division_1',
-            title: 'Division Challenge',
-            subject: Subject.math,
-            ageGroup: ageGroup,
-            gameType: GameType.quiz,
-            difficulty: 4,
-            objectives: ['Division basics', 'Equal groups'],
-            maxScore: 100,
-          ),
-        ];
-    }
-  }
-
-  List<GameLevel> _generateLanguageLevels(AgeGroup ageGroup) {
-    switch (ageGroup) {
-      case AgeGroup.littleTots:
-        return [
-          GameLevel(
-            id: 'lang_alphabet_1',
-            title: 'Alphabet Zoo',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Learn letter sounds', 'Recognize letters A-Z'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-          GameLevel(
-            id: 'lang_sounds_1',
-            title: 'First Sounds',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Letter sounds', 'Beginning sounds'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'lang_words_1',
-            title: 'First Words',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.puzzle,
-            difficulty: 1,
-            objectives: ['Simple words', 'Picture matching'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'lang_rhymes_1',
-            title: 'Rhyme Time',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Rhyming words', 'Sound patterns'],
-            maxScore: 100,
-          ),
-        ];
-
-      case AgeGroup.smartKids:
-        return [
-          GameLevel(
-            id: 'lang_alphabet_1',
-            title: 'Advanced Alphabet',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Letter recognition', 'Alphabetical order'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-          GameLevel(
-            id: 'lang_phonics_1',
-            title: 'Phonics Forest',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.adventure,
-            difficulty: 2,
-            objectives: ['Sound out words', 'Simple reading'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'lang_spelling_1',
-            title: 'Spelling Bee',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.quiz,
-            difficulty: 2,
-            objectives: ['Spell simple words', 'Letter patterns'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'lang_reading_1',
-            title: 'Reading Adventures',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.adventure,
-            difficulty: 3,
-            objectives: ['Read sentences', 'Comprehension'],
-            maxScore: 100,
-          ),
-        ];
-
-      case AgeGroup.youngScholars:
-        return [
-          GameLevel(
-            id: 'lang_alphabet_1',
-            title: 'Perfect Alphabet',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Speed recognition', 'Advanced patterns'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-          GameLevel(
-            id: 'lang_vocabulary_1',
-            title: 'Word Wizard',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.quiz,
-            difficulty: 3,
-            objectives: ['Expand vocabulary', 'Reading comprehension'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'lang_grammar_1',
-            title: 'Grammar Guardian',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.puzzle,
-            difficulty: 4,
-            objectives: ['Grammar rules', 'Sentence structure'],
-            maxScore: 100,
-          ),
-          GameLevel(
-            id: 'lang_writing_1',
-            title: 'Story Creator',
-            subject: Subject.language,
-            ageGroup: ageGroup,
-            gameType: GameType.adventure,
-            difficulty: 4,
-            objectives: ['Creative writing', 'Story elements'],
-            maxScore: 100,
-          ),
-        ];
-    }
-  }
-
-  List<GameLevel> _generateScienceLevels(AgeGroup ageGroup) {
-    switch (ageGroup) {
-      case AgeGroup.littleTots:
-        return [
-          GameLevel(
-            id: 'science_animals_1',
-            title: 'Animal Friends',
-            subject: Subject.science,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Identify animals', 'Animal sounds'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-        ];
-
-      case AgeGroup.smartKids:
-        return [
-          GameLevel(
-            id: 'science_plants_1',
-            title: 'Plant Paradise',
-            subject: Subject.science,
-            ageGroup: ageGroup,
-            gameType: GameType.adventure,
-            difficulty: 2,
-            objectives: ['Learn about plants', 'How plants grow'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-        ];
-
-      case AgeGroup.youngScholars:
-        return [
-          GameLevel(
-            id: 'science_space_1',
-            title: 'Space Explorer',
-            subject: Subject.science,
-            ageGroup: ageGroup,
-            gameType: GameType.quiz,
-            difficulty: 3,
-            objectives: ['Solar system', 'Space facts'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-        ];
-    }
-  }
-
-  List<GameLevel> _generateGeneralLevels(AgeGroup ageGroup) {
-    switch (ageGroup) {
-      case AgeGroup.littleTots:
-        return [
-          GameLevel(
-            id: 'general_colors_1',
-            title: 'Color Carnival',
-            subject: Subject.general,
-            ageGroup: ageGroup,
-            gameType: GameType.matching,
-            difficulty: 1,
-            objectives: ['Learn colors', 'Color matching'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-        ];
-
-      case AgeGroup.smartKids:
-        return [
-          GameLevel(
-            id: 'general_world_1',
-            title: 'World Wonders',
-            subject: Subject.general,
-            ageGroup: ageGroup,
-            gameType: GameType.adventure,
-            difficulty: 2,
-            objectives: ['Learn about countries', 'Famous landmarks'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-        ];
-
-      case AgeGroup.youngScholars:
-        return [
-          GameLevel(
-            id: 'general_history_1',
-            title: 'Time Travel',
-            subject: Subject.general,
-            ageGroup: ageGroup,
-            gameType: GameType.quiz,
-            difficulty: 3,
-            objectives: ['Historical events', 'Famous people'],
-            maxScore: 100,
-            isUnlocked: true,
-          ),
-        ];
-    }
-  }
-
-  Future<void> logout() async {
-    try {
-      // Clear current player in memory
-      _currentPlayer = null;
-      
-      // Clear current player ID from SharedPreferences
-      await _prefs.remove(_currentPlayerKey);
-      
-      // Clear all player data from SharedPreferences
-      final keys = _prefs.getKeys();
-      final playerKeys = keys.where((key) => key.startsWith(_playerKey));
-      for (final key in playerKeys) {
-        await _prefs.remove(key);
-      }
-      
-      // Optionally clear all app preferences (uncomment if you want to clear everything)
-      // await _prefs.clear();
-      
-      print('Logout completed successfully - all user data cleared');
-    } catch (e) {
-      print('Error during logout: $e');
-      // Fallback: try to clear everything if selective clearing fails
-      try {
-        _currentPlayer = null;
-        await _prefs.clear();
-        print('Fallback logout completed - all preferences cleared');
-      } catch (fallbackError) {
-        print('Fallback logout also failed: $fallbackError');
-      }
-    }
-  }
-
-  // Method to verify logout was successful
-  bool isLoggedOut() {
-    return _currentPlayer == null && 
-           !_prefs.containsKey(_currentPlayerKey);
-  }
-
-  // Method to get all stored player keys (for debugging)
-  List<String> getStoredPlayerKeys() {
-    final keys = _prefs.getKeys();
-    return keys.where((key) => key.startsWith(_playerKey)).toList();
-  }
-
-  // Load player progress from Firebase
-  Future<void> loadProgressFromFirebase() async {
-    if (_auth.currentUser == null) return;
+    // Always save locally first
+    _currentPlayer!.updateGameProgress(
+      gameId: gameId,
+      level: level,
+      score: score,
+      timeSpent: timeSpent,
+      completed: completed,
+    );
     
+    await _saveCurrentPlayer();
+
+    if (isOnline) {
+      // If online, save to Firestore immediately
+      try {
+        await _saveToFirestore();
+      } catch (e) {
+        print('Error saving to Firestore: $e');
+        // If Firestore fails, save to offline queue
+        _saveToOfflineQueue(gameId, level, score, timeSpent, completed);
+      }
+    } else {
+      // If offline, save to offline queue
+      _saveToOfflineQueue(gameId, level, score, timeSpent, completed);
+    }
+  }
+
+  // Save to offline queue for later sync
+  void _saveToOfflineQueue(String gameId, int level, int score, int timeSpent, bool completed) {
+    final offlineProgress = {
+      'gameId': gameId,
+      'level': level,
+      'score': score,
+      'timeSpent': timeSpent,
+      'completed': completed,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+    
+    final existingProgress = _prefs.getStringList(_offlineProgressKey) ?? [];
+    existingProgress.add(json.encode(offlineProgress));
+    _prefs.setStringList(_offlineProgressKey, existingProgress);
+    
+    _offlineManager.addPendingOperation('game_progress_${DateTime.now().millisecondsSinceEpoch}');
+  }
+
+  // Sync offline data when connection is restored
+  Future<void> _syncOfflineData() async {
+    if (!isOnline) return;
+
     try {
-      final progressRef = _firestore
-          .collection('users')
-          .doc(_auth.currentUser!.uid)
-          .collection('progress')
-          .doc('player_data');
+      // Sync offline progress
+      final offlineProgress = _prefs.getStringList(_offlineProgressKey) ?? [];
       
-      final doc = await progressRef.get();
-      if (!doc.exists) return;
-      
-      final data = doc.data() as Map<String, dynamic>;
-      
-      // Only load if we don't have local data or Firebase data is newer
-      final firebaseUpdated = (data['updatedAt'] as Timestamp?)?.toDate();
-      final localLastPlayed = _currentPlayer?.lastPlayed;
-      
-      if (_currentPlayer == null || 
-          (firebaseUpdated != null && 
-           (localLastPlayed == null || firebaseUpdated.isAfter(localLastPlayed)))) {
-        
-        // Reconstruct PlayerProgress from Firebase data
-        final playerName = data['playerName'] as String? ?? 'Player';
-        final playerAge = data['playerAge'] as int? ?? 5;
-        final playerId = data['playerId'] as String? ?? _auth.currentUser!.uid;
-        
-        // Create categories map from Firebase data
-        final Map<String, CategoryProgress> categories = {};
-        final categoriesData = data['categories'] as Map<String, dynamic>? ?? {};
-        
-        categoriesData.forEach((categoryKey, categoryValue) {
-          final catData = categoryValue as Map<String, dynamic>;
-          final levelsData = catData['levels'] as Map<String, dynamic>? ?? {};
-          
-          final Map<String, LevelProgress> levels = {};
-          levelsData.forEach((levelKey, levelValue) {
-            final levelData = levelValue as Map<String, dynamic>;
-            levels[levelKey] = LevelProgress(
-              levelId: levelData['levelId'] as String? ?? levelKey,
-              stars: levelData['stars'] as int? ?? 0,
-              highScore: levelData['highScore'] as int? ?? 0,
-              isCompleted: levelData['isCompleted'] as bool? ?? false,
-              lastPlayed: (levelData['lastPlayed'] as Timestamp?)?.toDate(),
-            );
-          });
-          
-          categories[categoryKey] = CategoryProgress(
-            categoryId: catData['categoryId'] as String? ?? categoryKey,
-            unlockedLevels: catData['unlockedLevels'] as int? ?? 1,
-            currentAgeGroup: AgeGroup.values.firstWhere(
-              (e) => e.toString() == catData['currentAgeGroup'],
-              orElse: () => AgeGroup.littleTots,
-            ),
-            levels: levels,
+      for (final progressJson in offlineProgress) {
+        final progress = json.decode(progressJson);
+        // Update current player with offline progress
+        if (_currentPlayer != null) {
+          _currentPlayer!.updateGameProgress(
+            gameId: progress['gameId'],
+            level: progress['level'],
+            score: progress['score'],
+            timeSpent: progress['timeSpent'],
+            completed: progress['completed'],
           );
-        });
-        
-        final highestUnlockedAgeGroup = AgeGroup.values.firstWhere(
-          (e) => e.toString() == data['highestUnlockedAgeGroup'],
-          orElse: () => AgeGroup.littleTots,
-        );
-        
-        _currentPlayer = PlayerProgress(
-          playerId: playerId,
-          playerName: playerName,
-          age: playerAge,
-          totalStars: data['totalStars'] as int? ?? 0,
-          lastPlayed: (data['lastPlayed'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          achievements: List<String>.from(data['achievements'] ?? []),
-          categories: categories,
-          highestUnlockedAgeGroup: highestUnlockedAgeGroup,
-        );
-        
-        // Save the loaded data locally
-        final playerData = json.encode(_currentPlayer!.toJson());
-        await _prefs.setString(
-            '${_playerKey}_${_currentPlayer!.playerId}', playerData);
-        await _prefs.setString(_currentPlayerKey, _currentPlayer!.playerId);
-        
-        print('Player progress loaded from Firebase successfully');
+        }
+      }
+      
+      // Save all synced data to Firestore
+      if (_currentPlayer != null) {
+        await _saveToFirestore();
+      }
+      
+      // Clear offline queue after successful sync
+      await _prefs.remove(_offlineProgressKey);
+      
+      // Clear pending operations
+      for (final operation in _offlineManager.getPendingOperations()) {
+        _offlineManager.clearPendingOperation(operation);
+      }
+      
+      print('Offline data synced successfully');
+    } catch (e) {
+      print('Error syncing offline data: $e');
+    }
+  }
+
+  // Save to Firestore with error handling
+  Future<void> _saveToFirestore() async {
+    if (_currentPlayer == null || !isOnline) return;
+
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        await _firestore
+            .collection('player_progress')
+            .doc(user.uid)
+            .set(_currentPlayer!.toJson());
       }
     } catch (e) {
-      print('Error loading progress from Firebase: $e');
-      // Don't throw error to avoid breaking local functionality
+      print('Error saving to Firestore: $e');
+      rethrow;
+    }
+  }
+
+  // Get cached game levels for offline play
+  List<GameLevel> getCachedGameLevels(String gameId) {
+    final cachedLevels = _offlineManager.getCachedData<List<dynamic>>('game_levels_$gameId');
+    if (cachedLevels != null) {
+      return cachedLevels.map((level) => GameLevel.fromJson(level)).toList();
+    }
+    return _getDefaultGameLevels(gameId);
+  }
+
+  // Cache game levels for offline access
+  void cacheGameLevels(String gameId, List<GameLevel> levels) {
+    _offlineManager.cacheData('game_levels_$gameId', levels.map((l) => l.toJson()).toList());
+  }
+
+  // Get offline playable games
+  bool isGameAvailableOffline(String gameId) {
+    final cachedLevels = _offlineManager.getCachedData<List<dynamic>>('game_levels_$gameId');
+    return cachedLevels != null && cachedLevels.isNotEmpty;
+  }
+
+  // Get pending sync status
+  bool hasPendingSync() {
+    return _offlineManager.getPendingOperations().isNotEmpty;
+  }
+
+  // Get sync status message
+  String getSyncStatusMessage() {
+    if (isOnline && !hasPendingSync()) {
+      return 'All data synced';
+    } else if (isOnline && hasPendingSync()) {
+      return 'Syncing...';
+    } else if (!isOnline && hasPendingSync()) {
+      return 'Will sync when online';
+    } else {
+      return 'Offline mode';
     }
   }
 
@@ -739,5 +220,209 @@ class GameService {
     if (canSyncToFirebase) {
       await _saveProgressToFirebase();
     }
+  }
+
+  // Load current player from storage
+  Future<void> _loadCurrentPlayer() async {
+    try {
+      final playerId = _prefs.getString(_currentPlayerKey);
+      if (playerId != null) {
+        final playerData = _prefs.getString('${_playerKey}_$playerId');
+        if (playerData != null) {
+          final json = jsonDecode(playerData) as Map<String, dynamic>;
+          _currentPlayer = PlayerProgress.fromJson(json);
+        }
+      }
+    } catch (e) {
+      print('Error loading current player: $e');
+    }
+  }
+
+  // Save current player to storage
+  Future<void> _saveCurrentPlayer() async {
+    if (_currentPlayer != null) {
+      try {
+        final json = _currentPlayer!.toJson();
+        await _prefs.setString('${_playerKey}_${_currentPlayer!.playerId}', jsonEncode(json));
+      } catch (e) {
+        print('Error saving current player: $e');
+      }
+    }
+  }
+
+  // Get available levels for all games
+  List<GameLevel> getAvailableLevels() {
+    final List<GameLevel> allLevels = [];
+    
+    // Add levels from all game types
+    allLevels.addAll(_getDefaultGameLevels('math_counting'));
+    allLevels.addAll(_getDefaultGameLevels('alphabet_matching'));
+    allLevels.addAll(_getDefaultGameLevels('color_matching'));
+    allLevels.addAll(_getDefaultGameLevels('animal_science'));
+    
+    return allLevels;
+  }
+
+  // Get default game levels for a specific game
+  List<GameLevel> _getDefaultGameLevels(String gameId) {
+    switch (gameId) {
+      case 'math_counting':
+        return [
+          GameLevel(
+            id: 'math_1',
+            gameId: gameId,
+            levelNumber: 1,
+            title: 'Count to 5',
+            difficulty: 1,
+            maxScore: 100,
+            isUnlocked: true,
+            ageGroup: AgeGroup.toddler,
+          ),
+          GameLevel(
+            id: 'math_2',
+            gameId: gameId,
+            levelNumber: 2,
+            title: 'Count to 10',
+            difficulty: 2,
+            maxScore: 100,
+            isUnlocked: false,
+            ageGroup: AgeGroup.toddler,
+          ),
+        ];
+      case 'alphabet_matching':
+        return [
+          GameLevel(
+            id: 'alphabet_1',
+            gameId: gameId,
+            levelNumber: 1,
+            title: 'Letter A-E',
+            difficulty: 1,
+            maxScore: 100,
+            isUnlocked: true,
+            ageGroup: AgeGroup.toddler,
+          ),
+        ];
+      case 'color_matching':
+        return [
+          GameLevel(
+            id: 'color_1',
+            gameId: gameId,
+            levelNumber: 1,
+            title: 'Basic Colors',
+            difficulty: 1,
+            maxScore: 100,
+            isUnlocked: true,
+            ageGroup: AgeGroup.toddler,
+          ),
+        ];
+      case 'animal_science':
+        return [
+          GameLevel(
+            id: 'animal_1',
+            gameId: gameId,
+            levelNumber: 1,
+            title: 'Farm Animals',
+            difficulty: 1,
+            maxScore: 100,
+            isUnlocked: true,
+            ageGroup: AgeGroup.toddler,
+          ),
+        ];
+      default:
+        return [];
+    }
+  }
+
+  // Update level score
+  Future<void> updateLevelScore(String levelId, int score) async {
+    if (_currentPlayer != null) {
+      // Update score in player progress
+      _currentPlayer = _currentPlayer!.copyWith(lastPlayed: DateTime.now());
+      await _saveCurrentPlayer();
+      
+      // Queue for sync if offline
+      if (!isOnline) {
+        _offlineManager.queueOperation('updateScore', {
+          'levelId': levelId,
+          'score': score,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+      }
+    }
+  }
+
+  // Add achievement
+  Future<void> addAchievement(String achievementId) async {
+    if (_currentPlayer != null) {
+      // Update achievement in player progress
+      _currentPlayer = _currentPlayer!.copyWith(lastPlayed: DateTime.now());
+      await _saveCurrentPlayer();
+      
+      // Queue for sync if offline
+      if (!isOnline) {
+        _offlineManager.queueOperation('addAchievement', {
+          'achievementId': achievementId,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+      }
+    }
+  }
+
+  // Logout
+  Future<void> logout() async {
+    _currentPlayer = null;
+    await _prefs.remove(_currentPlayerKey);
+    await _auth.signOut();
+  }
+
+  // Check if logged out
+  bool isLoggedOut() {
+    return _auth.currentUser == null || _currentPlayer == null;
+  }
+
+  // Load progress from Firebase
+  Future<void> loadProgressFromFirebase() async {
+    if (_auth.currentUser == null || !isOnline) return;
+    
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(_auth.currentUser!.uid)
+          .collection('progress')
+          .doc('player_data')
+          .get();
+      
+      if (doc.exists) {
+        final data = doc.data()!;
+        _currentPlayer = PlayerProgress.fromJson(data);
+        await _saveCurrentPlayer();
+      }
+    } catch (e) {
+      print('Error loading progress from Firebase: $e');
+    }
+  }
+
+  // Check if can sync to Firebase
+  bool get canSyncToFirebase => _auth.currentUser != null && isOnline;
+
+  // Sync progress to Firebase
+  Future<void> syncProgressToFirebase() async {
+    if (!canSyncToFirebase || _currentPlayer == null) return;
+    
+    try {
+      await _firestore
+          .collection('users')
+          .doc(_auth.currentUser!.uid)
+          .collection('progress')
+          .doc('player_data')
+          .set(_currentPlayer!.toJson());
+    } catch (e) {
+      print('Error syncing to Firebase: $e');
+    }
+  }
+
+  // Save progress to Firebase
+  Future<void> _saveProgressToFirebase() async {
+    await syncProgressToFirebase();
   }
 }
