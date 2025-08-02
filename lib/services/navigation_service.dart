@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/admin_service.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
-import '../screens/splash_screen.dart';
 import '../admin/screens/admin_dashboard_screen.dart';
 
 class NavigationService {
@@ -14,12 +13,42 @@ class NavigationService {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   
   // Get the appropriate home screen based on user type
+  static Future<Widget> getHomeScreenAsync() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const LoginScreen();
+    }
+    
+    // Check both hardcoded admin emails and Firebase roles
+    if (AdminService.isAdminUser()) {
+      return const AdminDashboardScreen();
+    }
+
+    // Check Firebase role
+    final firebaseRole = await AdminService.getUserRoleFromFirebase();
+    if (firebaseRole != null) {
+      switch (firebaseRole.toLowerCase()) {
+        case 'super_admin':
+        case 'content_manager':
+        case 'support':
+        case 'admin':
+          return const AdminDashboardScreen();
+        default:
+          return const HomeScreen();
+      }
+    }
+    
+    return const HomeScreen();
+  }
+
+  // Synchronous version for backward compatibility
   static Widget getHomeScreen() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return const LoginScreen();
     }
     
+    // Only check hardcoded admin emails for now
     if (AdminService.isAdminUser()) {
       return const AdminDashboardScreen();
     }
@@ -42,43 +71,111 @@ class NavigationService {
     }
   }
 
-  // Switch between admin and user mode (for super admins)
-  static void switchUserMode(BuildContext context, {bool forceUserMode = false}) {
-    if (AdminService.isSuperAdmin() || forceUserMode) {
-      if (forceUserMode) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      } else {
-        Navigator.of(context).pushReplacementNamed('/admin-dashboard');
-      }
+  // Switch between different user roles (for super admins and testing)
+  static Future<void> switchUserMode(BuildContext context, {String? targetRole}) async {
+    if (!AdminService.isSuperAdmin()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only super admins can switch roles'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (targetRole != null) {
+      await AdminService.switchUserRole(context, targetRole);
+    } else {
+      showAdvancedUserModeSwitcher(context);
     }
   }
 
-  // Show user mode switcher dialog for super admins
-  static void showUserModeSwitcher(BuildContext context) {
+  // Show enhanced user mode switcher dialog for super admins
+  static void showAdvancedUserModeSwitcher(BuildContext context) {
     if (!AdminService.isSuperAdmin()) return;
     
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Switch Mode'),
-          content: const Text('Choose your preferred mode:'),
+          title: const Text('Switch User Role'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Choose the role you want to switch to:'),
+              const SizedBox(height: 16),
+              const Text(
+                'Note: This is for testing and demonstration purposes.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.of(context).pushReplacementNamed('/home');
+                AdminService.switchUserRole(context, 'user');
               },
-              child: const Text('User Mode'),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.person, size: 16),
+                  SizedBox(width: 4),
+                  Text('Regular User'),
+                ],
+              ),
             ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.of(context).pushReplacementNamed('/admin-dashboard');
+                AdminService.switchUserRole(context, 'support');
               },
-              child: const Text('Admin Mode'),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.support_agent, size: 16),
+                  SizedBox(width: 4),
+                  Text('Support'),
+                ],
+              ),
             ),
             TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                AdminService.switchUserRole(context, 'content_manager');
+              },
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.edit, size: 16),
+                  SizedBox(width: 4),
+                  Text('Content Manager'),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                AdminService.switchUserRole(context, 'super_admin');
+              },
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.admin_panel_settings, size: 16),
+                  SizedBox(width: 4),
+                  Text('Super Admin'),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel'),
             ),
@@ -144,7 +241,7 @@ class NavigationService {
   // Get routes for the app
   static Map<String, WidgetBuilder> getRoutes() {
     return {
-      '/': (context) => const SplashScreen(),
+      '/': (context) => getHomeScreen(),
       '/login': (context) => const LoginScreen(),
       '/home': (context) => const HomeScreen(),
       '/admin-dashboard': (context) => const AdminDashboardScreen(),
@@ -288,10 +385,11 @@ class AdaptiveDrawer extends StatelessWidget {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.swap_horiz),
-              title: const Text('Switch Mode'),
+              title: const Text('Switch Role'),
+              subtitle: const Text('Change user role for testing'),
               onTap: () {
                 Navigator.of(context).pop();
-                NavigationService.showUserModeSwitcher(context);
+                NavigationService.showAdvancedUserModeSwitcher(context);
               },
             ),
           ],
