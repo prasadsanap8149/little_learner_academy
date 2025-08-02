@@ -18,7 +18,7 @@ The security system implements a multi-layered approach:
 
 | Role | Description | Email Pattern |
 |------|-------------|---------------|
-| **Super Admin** | Full system access | `admin@littlelearnersacademy.com`, `prasad@littlelearnersacademy.com` |
+| **Super Admin** | Full system access | `admin@littlelearnersacademy.com`, `sanapprasad2021@gmail.com` |
 | **Content Manager** | Game and educational content management | `content@littlelearnersacademy.com` |
 | **Support** | User support and basic analytics | `support@littlelearnersacademy.com` |
 
@@ -172,7 +172,7 @@ firebase storage:rules:test storage.rules
 ```dart
 static const Map<String, AdminRole> adminEmails = {
   'admin@littlelearnersacademy.com': AdminRole.superAdmin,
-  'prasad@littlelearnersacademy.com': AdminRole.superAdmin,
+  'sanapprasad2021@gmail.com': AdminRole.superAdmin,
   'content@littlelearnersacademy.com': AdminRole.contentManager,
   'support@littlelearnersacademy.com': AdminRole.support,
   'newemail@littlelearnersacademy.com': AdminRole.support, // Add here

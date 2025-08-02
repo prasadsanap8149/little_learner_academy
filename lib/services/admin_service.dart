@@ -18,7 +18,7 @@ class AdminService {
   // Admin email addresses with their roles
   static const Map<String, AdminRole> adminEmails = {
     'admin@littlelearnersacademy.com': AdminRole.superAdmin,
-    'prasad@littlelearnersacademy.com': AdminRole.superAdmin,
+    'sanapprasad2021@gmail.com': AdminRole.superAdmin,
     'content@littlelearnersacademy.com': AdminRole.contentManager,
     'support@littlelearnersacademy.com': AdminRole.support,
     // Add more admin emails as needed

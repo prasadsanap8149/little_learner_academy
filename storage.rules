@@ -13,7 +13,7 @@ service firebase.storage {
     function isAdmin() {
       return isAuthenticated() && (
         getUserEmail() == 'admin@littlelearnersacademy.com' ||
-        getUserEmail() == 'prasad@littlelearnersacademy.com' ||
+        getUserEmail() == 'sanapprasad2021@gmail.com' ||
         getUserEmail() == 'content@littlelearnersacademy.com' ||
         getUserEmail() == 'support@littlelearnersacademy.com'
       );
@@ -22,7 +22,7 @@ service firebase.storage {
     function isSuperAdmin() {
       return isAuthenticated() && (
         getUserEmail() == 'admin@littlelearnersacademy.com' ||
-        getUserEmail() == 'prasad@littlelearnersacademy.com'
+        getUserEmail() == 'sanapprasad2021@gmail.com'
       );
     }
     

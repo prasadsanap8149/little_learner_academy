@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/admin_service.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
+import '../screens/splash_screen.dart';
 import '../admin/screens/admin_dashboard_screen.dart';
 
 class NavigationService {
@@ -143,7 +144,7 @@ class NavigationService {
   // Get routes for the app
   static Map<String, WidgetBuilder> getRoutes() {
     return {
-      '/': (context) => getHomeScreen(),
+      '/': (context) => const SplashScreen(),
       '/login': (context) => const LoginScreen(),
       '/home': (context) => const HomeScreen(),
       '/admin-dashboard': (context) => const AdminDashboardScreen(),

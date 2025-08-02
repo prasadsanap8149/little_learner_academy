@@ -511,7 +511,7 @@ A comprehensive admin interface **built directly into the Flutter app** with rol
 class AdminService {
   static const List<String> adminEmails = [
     'admin@littlelearnersacademy.com',
-    'prasad@littlelearnersacademy.com',
+    'sanapprasad2021@gmail.com',
     'content@littlelearnersacademy.com',
     // Add more admin emails as needed
   ];

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'screens/splash_screen.dart';
 import 'services/game_provider.dart';
 import 'services/auth_service.dart';
 import 'services/navigation_service.dart';
@@ -46,7 +45,7 @@ class LittleLearnersApp extends StatelessWidget {
         navigatorKey: NavigationService.navigatorKey,
         theme: UITheme.lightTheme,
         routes: NavigationService.getRoutes(),
-        home: const SplashScreen(),
+        initialRoute: '/',
       ),
     );
   }
