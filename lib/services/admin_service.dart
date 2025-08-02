@@ -220,7 +220,7 @@ class AdminService {
       throw Exception('Failed to fetch dashboard statistics');
     }
   }
-
+  
   /// Update user data (admin only)
   Future<void> updateUserData(String userId, Map<String, dynamic> data) async {
     if (!await AdminSecurityUtils.checkPrivilegeWithRateLimit(
