@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:little_learners_academy/screens/settings_screen.dart';
+import 'package:little_learners_academy/screens/user_profile_screen.dart';
+import 'package:little_learners_academy/screens/achievements_screen.dart';
 import 'package:provider/provider.dart';
 import '../services/game_provider.dart';
 import '../models/game_level.dart';
@@ -22,6 +24,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    
+    // Ensure player data is loaded from Firebase if needed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final gameProvider = Provider.of<GameProvider>(context, listen: false);
+      gameProvider.loadPlayerFromFirebase();
+    });
   }
 
   @override
@@ -103,6 +111,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                     ),
                               ),
                             ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const AchievementsScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.emoji_events,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const UserProfileScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 28,
                           ),
                         ),
                         IconButton(

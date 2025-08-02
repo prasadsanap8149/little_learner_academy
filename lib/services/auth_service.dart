@@ -1,8 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_profile.dart';
-import '../models/subscription_plan.dart';
 
 enum AuthStatus { unauthenticated, authenticated, loading }
 
@@ -12,9 +10,6 @@ class AuthService {
   AuthService._internal();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
-  );
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   User? get currentUser => _auth.currentUser;
@@ -43,40 +38,124 @@ class AuthService {
     }
   }
 
-  // Sign in with Google
-  Future<UserCredential?> signInWithGoogle() async {
+  // Sign up with email and password
+  Future<UserCredential?> signUpWithEmailPassword({
+    required String email,
+    required String password,
+    required String name,
+  }) async {
     try {
-      // Sign out first to ensure account picker is shown
-      await _googleSignIn.signOut();
-      
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        // User cancelled the sign-in
-        return null;
-      }
-
-      final GoogleSignInAuthentication googleAuth = 
-          await googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
+      // Create user with email and password
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
       );
 
-      final userCredential = await _auth.signInWithCredential(credential);
+      // Update display name
+      await userCredential.user?.updateDisplayName(name);
       
-      // Create or update user profile
-      await _createOrUpdateUserProfile(userCredential.user!);
+      // Create user profile with email provider
+      await _createOrUpdateUserProfile(
+        userCredential.user!,
+        providerType: 'email',
+      );
       
       return userCredential;
     } catch (e) {
+      print('Error signing up with email: $e');
+      rethrow;
+    }
+  }
+
+  // Sign in with email and password
+  Future<UserCredential?> signInWithEmailPassword({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      // Update user profile with last login
+      await _createOrUpdateUserProfile(
+        userCredential.user!,
+        providerType: 'email',
+      );
+      
+      return userCredential;
+    } catch (e) {
+      print('Error signing in with email: $e');
+      rethrow;
+    }
+  }
+
+  // Reset password
+  Future<void> resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } catch (e) {
+      print('Error sending password reset email: $e');
+      rethrow;
+    }
+  }
+
+  // Send email verification
+  Future<void> sendEmailVerification() async {
+    try {
+      if (currentUser != null && !currentUser!.emailVerified) {
+        await currentUser!.sendEmailVerification();
+      }
+    } catch (e) {
+      print('Error sending email verification: $e');
+      rethrow;
+    }
+  }
+
+  // Check if email is verified
+  bool get isEmailVerified => currentUser?.emailVerified ?? false;
+
+  // Reload current user (to update email verification status)
+  Future<void> reloadUser() async {
+    try {
+      await currentUser?.reload();
+    } catch (e) {
+      print('Error reloading user: $e');
+    }
+  }
+
+  // Sign in with Google
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      // Create a GoogleAuthProvider
+      final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+      
+      // Add scopes
+      googleProvider.addScope('email');
+      googleProvider.addScope('profile');
+      
+      // Sign in with the provider
+      final userCredential = await _auth.signInWithProvider(googleProvider);
+      
+      // Create or update user profile
+      if (userCredential.user != null) {
+        await _createOrUpdateUserProfile(userCredential.user!, providerType: 'google');
+      }
+      
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      print('Firebase Auth Error in Google Sign In: ${e.code} - ${e.message}');
+      rethrow;
+    } catch (e) {
       print('Error signing in with Google: $e');
+      print('Error type: ${e.runtimeType}');
       rethrow;
     }
   }
 
   // Create or update user profile in Firestore
-  Future<void> _createOrUpdateUserProfile(User user) async {
+  Future<void> _createOrUpdateUserProfile(User user, {String providerType = 'google'}) async {
     try {
       final userDoc = _firestore.collection('users').doc(user.uid);
       final userData = await userDoc.get();
@@ -92,8 +171,9 @@ class AuthService {
           createdAt: DateTime.now(),
           metadata: {
             'photoURL': user.photoURL,
-            'provider': 'google',
+            'provider': providerType,
             'firstLoginAt': FieldValue.serverTimestamp(),
+            'emailVerified': user.emailVerified,
           },
         );
 
@@ -106,10 +186,20 @@ class AuthService {
         await _createPlayerProgress(user.uid);
         
       } else {
-        // Update existing user profile
+        // Update existing user profile with proper metadata handling
+        final currentData = userData.data() as Map<String, dynamic>;
+        final currentMetadata = currentData['metadata'] as Map<String, dynamic>? ?? {};
+        
+        // Update metadata with new values
+        final updatedMetadata = {
+          ...currentMetadata,
+          'photoURL': user.photoURL,
+          'emailVerified': user.emailVerified,
+        };
+
         await userDoc.update({
           'lastLoginAt': FieldValue.serverTimestamp(),
-          'metadata.photoURL': user.photoURL,
+          'metadata': updatedMetadata,
         });
       }
     } catch (e) {
@@ -146,14 +236,9 @@ class AuthService {
   }
 
   // Create player progress document
-  Future<void> _createPlayerProgress(String userId) async {
+  Future<void> _createPlayerProgress(String userId, {String? childName, int? childAge}) async {
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('progress')
-          .doc('player_data')
-          .set({
+      final progressData = {
         'totalScore': 0,
         'levelsCompleted': 0,
         'achievements': [],
@@ -163,7 +248,22 @@ class AuthService {
         'favoriteSubjects': [],
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      // Add child details if provided
+      if (childName != null) {
+        progressData['playerName'] = childName;
+      }
+      if (childAge != null) {
+        progressData['playerAge'] = childAge;
+      }
+
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('progress')
+          .doc('player_data')
+          .set(progressData);
     } catch (e) {
       print('Error creating player progress: $e');
       rethrow;
@@ -182,26 +282,47 @@ class AuthService {
     try {
       final userDoc = _firestore.collection('users').doc(currentUser!.uid);
       
+      // First, get the current document to ensure it exists
+      final currentData = await userDoc.get();
+      if (!currentData.exists) {
+        throw Exception('User profile not found. Please try signing in again.');
+      }
+
+      // Prepare metadata update
+      final currentMetadata = currentData.data()?['metadata'] as Map<String, dynamic>? ?? {};
+      final updatedMetadata = {
+        ...currentMetadata,
+        'childName': childName,
+        'childAge': childAge,
+        'parentName': parentName,
+        'setupCompleted': true,
+      };
+
+      // Update user profile
       await userDoc.update({
-        'metadata.childName': childName,
-        'metadata.childAge': childAge,
-        'metadata.parentName': parentName,
-        'metadata.setupCompleted': true,
         'role': (role ?? UserRole.student).toString().split('.').last,
+        'metadata': updatedMetadata,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Update player progress with child details
-      await _firestore
+      // Update or create player progress with child details
+      final progressRef = _firestore
           .collection('users')
           .doc(currentUser!.uid)
           .collection('progress')
-          .doc('player_data')
-          .update({
-        'playerName': childName,
-        'playerAge': childAge,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+          .doc('player_data');
+      
+      final progressData = await progressRef.get();
+      if (progressData.exists) {
+        await progressRef.update({
+          'playerName': childName,
+          'playerAge': childAge,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // Create player progress if it doesn't exist
+        await _createPlayerProgress(currentUser!.uid, childName: childName, childAge: childAge);
+      }
 
     } catch (e) {
       print('Error completing user setup: $e');
@@ -351,10 +472,8 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     try {
-      await Future.wait([
-        _googleSignIn.signOut(),
-        _auth.signOut(),
-      ]);
+      // Sign out from Firebase Auth
+      await _auth.signOut();
     } catch (e) {
       print('Error signing out: $e');
       rethrow;
@@ -426,6 +545,49 @@ class AuthService {
     } catch (e) {
       print('Error deleting user data: $e');
       rethrow;
+    }
+  }
+
+  // Check if user setup is completed
+  Future<bool> isUserSetupCompleted() async {
+    if (currentUser == null) return false;
+    
+    try {
+      final userProfile = await getCurrentUserProfile();
+      if (userProfile == null) return false;
+      
+      final setupCompleted = userProfile.metadata?['setupCompleted'] ?? false;
+      final hasChildName = userProfile.metadata?['childName'] != null && 
+                          (userProfile.metadata!['childName'] as String).isNotEmpty;
+      final hasChildAge = userProfile.metadata?['childAge'] != null;
+      
+      return setupCompleted && hasChildName && hasChildAge;
+    } catch (e) {
+      print('Error checking setup completion: $e');
+      return false;
+    }
+  }
+
+  // Load and sync player data from Firebase after login
+  Future<void> syncPlayerDataFromFirebase() async {
+    if (currentUser == null) return;
+    
+    try {
+      final userProfile = await getCurrentUserProfile();
+      if (userProfile == null) return;
+      
+      // Check if setup is completed and we have child data
+      final setupCompleted = userProfile.metadata?['setupCompleted'] ?? false;
+      final childName = userProfile.metadata?['childName'] as String?;
+      final childAge = userProfile.metadata?['childAge'] as int?;
+      
+      if (setupCompleted && childName != null && childAge != null) {
+        // Load game provider and ensure player data is created
+        // This will be called from the app's initialization flow
+        print('Player data available: $childName, age $childAge');
+      }
+    } catch (e) {
+      print('Error syncing player data from Firebase: $e');
     }
   }
 }

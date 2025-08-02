@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import '../models/game_level.dart';
 import '../widgets/answer_options_grid.dart';
+import '../services/sound_service.dart';
 
 class AnimalScienceGame extends StatefulWidget {
   final GameLevel level;
@@ -21,6 +22,7 @@ class AnimalScienceGame extends StatefulWidget {
 
 class _AnimalScienceGameState extends State<AnimalScienceGame>
     with TickerProviderStateMixin {
+  final SoundService _soundService = SoundService();
   late AnimationController _cardAnimationController;
   late AnimationController _animalAnimationController;
   late Animation<double> _cardScaleAnimation;
@@ -39,6 +41,15 @@ class _AnimalScienceGameState extends State<AnimalScienceGame>
     super.initState();
     _initializeAnimations();
     _generateQuestions();
+    _initializeSoundService();
+  }
+  
+  Future<void> _initializeSoundService() async {
+    try {
+      await _soundService.initialize();
+    } catch (e) {
+      print('Error initializing sound service: $e');
+    }
   }
 
   void _initializeAnimations() {
@@ -133,6 +144,11 @@ class _AnimalScienceGameState extends State<AnimalScienceGame>
 
     if (_currentQuestion >= _totalQuestions) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          _soundService.playLevelComplete();
+        } catch (e) {
+          print('Error playing level complete sound: $e');
+        }
         widget.onGameComplete(_score);
       });
       return const Center(child: CircularProgressIndicator());
@@ -300,10 +316,28 @@ class _AnimalScienceGameState extends State<AnimalScienceGame>
     if (answer == _questions[_currentQuestion].animal.sound) {
       _score += 20;
       widget.onScoreUpdate(20);
+      try {
+        _soundService.playSuccess();
+        _soundService.playAnimalSound(); // Play animal sound
+      } catch (e) {
+        print('Error playing success/animal sound: $e');
+      }
+    } else {
+      try {
+        _soundService.playError();
+      } catch (e) {
+        print('Error playing error sound: $e');
+      }
     }
   }
 
   void _nextQuestion() {
+    try {
+      _soundService.playClick();
+    } catch (e) {
+      print('Error playing click sound: $e');
+    }
+    
     setState(() {
       _currentQuestion++;
       _selectedAnswer = null;

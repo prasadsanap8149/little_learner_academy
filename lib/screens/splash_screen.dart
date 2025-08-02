@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 import 'dart:async';
 import '../services/game_provider.dart';
 import '../services/auth_service.dart';
-import 'welcome_screen.dart';
+import '../services/admin_service.dart';
+import '../admin/screens/admin_dashboard_screen.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
 import 'user_setup_screen.dart';
@@ -72,22 +73,26 @@ class _SplashScreenState extends State<SplashScreen>
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
     
     if (authService.isAuthenticated) {
-      // User is authenticated, check if setup is completed
-      final userProfile = await authService.getCurrentUserProfile();
-      final setupCompleted = userProfile?.metadata?['setupCompleted'] ?? false;
+      // Check if user is an admin first
+      if (AdminService.isAdminUser()) {
+        // Navigate to admin dashboard
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+        );
+        return;
+      }
+      
+      // User is authenticated, check if setup is completed using the improved method
+      final setupCompleted = await authService.isUserSetupCompleted();
       
       if (setupCompleted) {
-        // Setup completed, check if we have local game data
-        if (gameProvider.gameService.currentPlayer != null) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        } else {
-          // Authenticated but no game data, go to welcome screen for game setup
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-          );
-        }
+        // Setup completed, ensure player data is loaded from Firebase
+        await gameProvider.loadPlayerFromFirebase();
+        
+        // Navigate to home screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
       } else {
         // User setup not completed
         Navigator.of(context).pushReplacement(

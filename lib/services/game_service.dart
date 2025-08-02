@@ -1,4 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import '../models/player_progress.dart';
 import '../models/game_level.dart';
@@ -9,6 +11,8 @@ class GameService {
   static const String _currentPlayerKey = 'current_player_id';
 
   late SharedPreferences _prefs;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   PlayerProgress? _currentPlayer;
 
   Future<void> initialize() async {
@@ -42,11 +46,66 @@ class GameService {
 
   Future<void> _saveCurrentPlayer() async {
     if (_currentPlayer != null) {
+      // Save to local storage
       final playerData = json.encode(_currentPlayer!.toJson());
       await _prefs.setString(
           '${_playerKey}_${_currentPlayer!.playerId}', playerData);
+      
+      // Save to Firebase if user is authenticated
+      await _saveProgressToFirebase();
     }
   }
+
+  Future<void> _saveProgressToFirebase() async {
+    if (_auth.currentUser == null || _currentPlayer == null) return;
+    
+    try {
+      final progressRef = _firestore
+          .collection('users')
+          .doc(_auth.currentUser!.uid)
+          .collection('progress')
+          .doc('player_data');
+      
+      final progressData = {
+        'playerName': _currentPlayer!.playerName,
+        'playerAge': _currentPlayer!.age,
+        'totalStars': _currentPlayer!.totalStars,
+        'playerId': _currentPlayer!.playerId,
+        'lastPlayed': Timestamp.fromDate(_currentPlayer!.lastPlayed),
+        'achievements': _currentPlayer!.achievements,
+        'highestUnlockedAgeGroup': _currentPlayer!.highestUnlockedAgeGroup.toString(),
+        'categories': _currentPlayer!.categories.map((key, value) => MapEntry(key, {
+          'categoryId': value.categoryId,
+          'unlockedLevels': value.unlockedLevels,
+          'currentAgeGroup': value.currentAgeGroup.toString(),
+          'levels': value.levels.map((levelKey, level) => MapEntry(levelKey, {
+            'levelId': level.levelId,
+            'stars': level.stars,
+            'highScore': level.highScore,
+            'isCompleted': level.isCompleted,
+            'lastPlayed': level.lastPlayed != null 
+                ? Timestamp.fromDate(level.lastPlayed!) 
+                : null,
+          })),
+        })),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      
+      await progressRef.set(progressData, SetOptions(merge: true));
+      print('Player progress saved to Firebase successfully');
+    } catch (e) {
+      print('Error saving progress to Firebase: $e');
+      // Don't throw error to avoid breaking local functionality
+    }
+  }
+
+  // Manual sync method for periodic syncing
+  Future<void> syncProgressToFirebase() async {
+    await _saveProgressToFirebase();
+  }
+
+  // Method to check if Firebase sync is available
+  bool get canSyncToFirebase => _auth.currentUser != null && _currentPlayer != null;
 
   Future<void> updateLevelScore(String levelId, int score) async {
     if (_currentPlayer != null) {
@@ -126,7 +185,7 @@ class GameService {
     final totalStars = _currentPlayer!.totalStars;
 
     // Unlock next age group if player has enough achievements and stars
-    if (currentAgeGroup != AgeGroup.tween &&
+    if (currentAgeGroup != AgeGroup.youngScholars &&
         achievementCount >= 5 &&
         totalStars >= 50 &&
         currentAgeGroup.index < _currentPlayer!.highestUnlockedAgeGroup.index) {
@@ -164,7 +223,7 @@ class GameService {
 
   List<GameLevel> _generateMathLevels(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
+      case AgeGroup.littleTots:
         return [
           GameLevel(
             id: 'math_count_1',
@@ -209,7 +268,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.elementary:
+      case AgeGroup.smartKids:
         return [
           GameLevel(
             id: 'math_count_1',
@@ -254,7 +313,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.tween:
+      case AgeGroup.youngScholars:
         return [
           GameLevel(
             id: 'math_count_1',
@@ -303,7 +362,7 @@ class GameService {
 
   List<GameLevel> _generateLanguageLevels(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
+      case AgeGroup.littleTots:
         return [
           GameLevel(
             id: 'lang_alphabet_1',
@@ -348,7 +407,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.elementary:
+      case AgeGroup.smartKids:
         return [
           GameLevel(
             id: 'lang_alphabet_1',
@@ -393,7 +452,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.tween:
+      case AgeGroup.youngScholars:
         return [
           GameLevel(
             id: 'lang_alphabet_1',
@@ -442,7 +501,7 @@ class GameService {
 
   List<GameLevel> _generateScienceLevels(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
+      case AgeGroup.littleTots:
         return [
           GameLevel(
             id: 'science_animals_1',
@@ -457,7 +516,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.elementary:
+      case AgeGroup.smartKids:
         return [
           GameLevel(
             id: 'science_plants_1',
@@ -472,7 +531,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.tween:
+      case AgeGroup.youngScholars:
         return [
           GameLevel(
             id: 'science_space_1',
@@ -491,7 +550,7 @@ class GameService {
 
   List<GameLevel> _generateGeneralLevels(AgeGroup ageGroup) {
     switch (ageGroup) {
-      case AgeGroup.toddler:
+      case AgeGroup.littleTots:
         return [
           GameLevel(
             id: 'general_colors_1',
@@ -506,7 +565,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.elementary:
+      case AgeGroup.smartKids:
         return [
           GameLevel(
             id: 'general_world_1',
@@ -521,7 +580,7 @@ class GameService {
           ),
         ];
 
-      case AgeGroup.tween:
+      case AgeGroup.youngScholars:
         return [
           GameLevel(
             id: 'general_history_1',
@@ -580,5 +639,105 @@ class GameService {
   List<String> getStoredPlayerKeys() {
     final keys = _prefs.getKeys();
     return keys.where((key) => key.startsWith(_playerKey)).toList();
+  }
+
+  // Load player progress from Firebase
+  Future<void> loadProgressFromFirebase() async {
+    if (_auth.currentUser == null) return;
+    
+    try {
+      final progressRef = _firestore
+          .collection('users')
+          .doc(_auth.currentUser!.uid)
+          .collection('progress')
+          .doc('player_data');
+      
+      final doc = await progressRef.get();
+      if (!doc.exists) return;
+      
+      final data = doc.data() as Map<String, dynamic>;
+      
+      // Only load if we don't have local data or Firebase data is newer
+      final firebaseUpdated = (data['updatedAt'] as Timestamp?)?.toDate();
+      final localLastPlayed = _currentPlayer?.lastPlayed;
+      
+      if (_currentPlayer == null || 
+          (firebaseUpdated != null && 
+           (localLastPlayed == null || firebaseUpdated.isAfter(localLastPlayed)))) {
+        
+        // Reconstruct PlayerProgress from Firebase data
+        final playerName = data['playerName'] as String? ?? 'Player';
+        final playerAge = data['playerAge'] as int? ?? 5;
+        final playerId = data['playerId'] as String? ?? _auth.currentUser!.uid;
+        
+        // Create categories map from Firebase data
+        final Map<String, CategoryProgress> categories = {};
+        final categoriesData = data['categories'] as Map<String, dynamic>? ?? {};
+        
+        categoriesData.forEach((categoryKey, categoryValue) {
+          final catData = categoryValue as Map<String, dynamic>;
+          final levelsData = catData['levels'] as Map<String, dynamic>? ?? {};
+          
+          final Map<String, LevelProgress> levels = {};
+          levelsData.forEach((levelKey, levelValue) {
+            final levelData = levelValue as Map<String, dynamic>;
+            levels[levelKey] = LevelProgress(
+              levelId: levelData['levelId'] as String? ?? levelKey,
+              stars: levelData['stars'] as int? ?? 0,
+              highScore: levelData['highScore'] as int? ?? 0,
+              isCompleted: levelData['isCompleted'] as bool? ?? false,
+              lastPlayed: (levelData['lastPlayed'] as Timestamp?)?.toDate(),
+            );
+          });
+          
+          categories[categoryKey] = CategoryProgress(
+            categoryId: catData['categoryId'] as String? ?? categoryKey,
+            unlockedLevels: catData['unlockedLevels'] as int? ?? 1,
+            currentAgeGroup: AgeGroup.values.firstWhere(
+              (e) => e.toString() == catData['currentAgeGroup'],
+              orElse: () => AgeGroup.littleTots,
+            ),
+            levels: levels,
+          );
+        });
+        
+        final highestUnlockedAgeGroup = AgeGroup.values.firstWhere(
+          (e) => e.toString() == data['highestUnlockedAgeGroup'],
+          orElse: () => AgeGroup.littleTots,
+        );
+        
+        _currentPlayer = PlayerProgress(
+          playerId: playerId,
+          playerName: playerName,
+          age: playerAge,
+          totalStars: data['totalStars'] as int? ?? 0,
+          lastPlayed: (data['lastPlayed'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          achievements: List<String>.from(data['achievements'] ?? []),
+          categories: categories,
+          highestUnlockedAgeGroup: highestUnlockedAgeGroup,
+        );
+        
+        // Save the loaded data locally
+        final playerData = json.encode(_currentPlayer!.toJson());
+        await _prefs.setString(
+            '${_playerKey}_${_currentPlayer!.playerId}', playerData);
+        await _prefs.setString(_currentPlayerKey, _currentPlayer!.playerId);
+        
+        print('Player progress loaded from Firebase successfully');
+      }
+    } catch (e) {
+      print('Error loading progress from Firebase: $e');
+      // Don't throw error to avoid breaking local functionality
+    }
+  }
+
+  Future<void> updatePlayer(PlayerProgress updatedPlayer) async {
+    _currentPlayer = updatedPlayer.copyWith(lastPlayed: DateTime.now());
+    await _saveCurrentPlayer();
+    
+    // Sync to Firebase if possible
+    if (canSyncToFirebase) {
+      await _saveProgressToFirebase();
+    }
   }
 }

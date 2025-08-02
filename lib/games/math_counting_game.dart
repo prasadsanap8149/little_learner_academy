@@ -3,6 +3,7 @@ import 'dart:math';
 import '../models/game_level.dart';
 import '../models/age_group.dart';
 import '../widgets/answer_options_grid.dart';
+import '../services/sound_service.dart';
 
 class MathCountingGame extends StatefulWidget {
   final GameLevel level;
@@ -30,6 +31,7 @@ class _MathCountingGameState extends State<MathCountingGame>
   late Animation<double> _cardSlideAnimation;
   late Animation<double> _itemScaleAnimation;
 
+  final SoundService _soundService = SoundService();
   int _currentQuestion = 0;
   int _score = 0;
   final int _totalQuestions = 8; // Increased from 5 to 8
@@ -43,6 +45,16 @@ class _MathCountingGameState extends State<MathCountingGame>
     super.initState();
     _initializeAnimations();
     _generateQuestions();
+    _initializeSoundService();
+  }
+  
+  Future<void> _initializeSoundService() async {
+    try {
+      await _soundService.initialize();
+    } catch (e) {
+      print('Error initializing sound service: $e');
+      // Continue without sound if initialization fails
+    }
   }
 
   void _initializeAnimations() {
@@ -95,9 +107,17 @@ class _MathCountingGameState extends State<MathCountingGame>
 
     _cardAnimationController.forward();
     _itemAnimationController.forward();
+    
+    // Play number sound after a short delay to let animations start
+    Future.delayed(const Duration(milliseconds: 800), () {
+      try {
+        _soundService.playNumberSound();
+      } catch (e) {
+        print('Error playing number sound: $e');
+      }
+    });
   }
 
-  @override
   @override
   void dispose() {
     _bounceController.dispose();
@@ -112,29 +132,32 @@ class _MathCountingGameState extends State<MathCountingGame>
 
     for (int i = 0; i < _totalQuestions; i++) {
       // Generate counting questions based on age group
-      int maxCount = widget.level.ageGroup == AgeGroup.toddler ? 5 : 10;
+      int maxCount = widget.level.ageGroup == AgeGroup.littleTots ? 5 : 10;
       int correctAnswer = random.nextInt(maxCount) + 1;
 
       // Generate wrong answers - ensure correct answer is always included
       Set<int> options = {correctAnswer};
-      while (options.length < 4) {
+      int attempts = 0;
+      while (options.length < 4 && attempts < 20) {
         int wrongAnswer = random.nextInt(maxCount) + 1;
         if (wrongAnswer != correctAnswer && wrongAnswer > 0) {
           options.add(wrongAnswer);
         }
+        attempts++;
       }
 
       // Ensure we have exactly 4 options including the correct one
       List<int> shuffledOptions = options.toList();
-      if (shuffledOptions.length < 4) {
-        // Add more options if needed
-        while (shuffledOptions.length < 4) {
-          int newOption = random.nextInt(maxCount) + 1;
-          if (!shuffledOptions.contains(newOption)) {
-            shuffledOptions.add(newOption);
-          }
+      while (shuffledOptions.length < 4) {
+        // Add more options if needed, ensuring they're within valid range
+        int newOption = random.nextInt(maxCount) + 1;
+        if (!shuffledOptions.contains(newOption)) {
+          shuffledOptions.add(newOption);
         }
       }
+      
+      // Take only the first 4 options and shuffle them
+      shuffledOptions = shuffledOptions.take(4).toList();
       shuffledOptions.shuffle();
 
       _questions.add(CountingQuestion(
@@ -173,6 +196,11 @@ class _MathCountingGameState extends State<MathCountingGame>
     if (_currentQuestion >= _totalQuestions) {
       // Game completed
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          _soundService.playLevelComplete();
+        } catch (e) {
+          print('Error playing level complete sound: $e');
+        }
         widget.onGameComplete(_score);
       });
       return const Center(child: CircularProgressIndicator());
@@ -249,11 +277,9 @@ class _MathCountingGameState extends State<MathCountingGame>
                                 return AnimatedBuilder(
                                   animation: _itemAnimationController,
                                   builder: (context, child) {
-                                    final animationValue = Curves.elasticOut
-                                        .transform(
-                                            (_itemAnimationController.value -
-                                                    delay)
-                                                .clamp(0.0, 1.0));
+                                    final normalizedDelay = delay.clamp(0.0, 1.0);
+                                    final adjustedProgress = (_itemAnimationController.value - normalizedDelay * 0.1).clamp(0.0, 1.0);
+                                    final animationValue = Curves.elasticOut.transform(adjustedProgress);
 
                                     return Transform.scale(
                                       scale: animationValue,
@@ -362,19 +388,42 @@ class _MathCountingGameState extends State<MathCountingGame>
       _bounceController.reverse();
     });
 
-    // Check if correct
+    // Check if correct and play appropriate sound
     if (answer == _questions[_currentQuestion].correctAnswer) {
       _score += 20; // 20 points per correct answer
       widget.onScoreUpdate(20);
+      try {
+        _soundService.playSuccess(); // Play success sound
+      } catch (e) {
+        print('Error playing success sound: $e');
+      }
+    } else {
+      try {
+        _soundService.playError(); // Play error sound
+      } catch (e) {
+        print('Error playing error sound: $e');
+      }
     }
-  }
-
-  void _nextQuestion() {
+  }  void _nextQuestion() {
+    try {
+      _soundService.playClick(); // Play click sound
+    } catch (e) {
+      print('Error playing click sound: $e');
+    }
+    
     setState(() {
       _currentQuestion++;
       _selectedAnswer = null;
       _showResult = false;
     });
+    
+    // Restart animations for the new question
+    if (_currentQuestion < _totalQuestions) {
+      _cardAnimationController.reset();
+      _itemAnimationController.reset();
+      _cardAnimationController.forward();
+      _itemAnimationController.forward();
+    }
   }
 }
 

@@ -53,8 +53,19 @@ class _UserSetupScreenState extends State<UserSetupScreen>
   }
 
   Future<void> _completeSetup() async {
+    // Validate required fields
     if (_childNameController.text.trim().isEmpty) {
       _showErrorSnackBar('Please enter child\'s name');
+      return;
+    }
+    
+    if (_childNameController.text.trim().length < 2) {
+      _showErrorSnackBar('Child\'s name must be at least 2 characters');
+      return;
+    }
+    
+    if (_selectedAge < 3 || _selectedAge > 12) {
+      _showErrorSnackBar('Please select a valid age between 3 and 12');
       return;
     }
 
@@ -63,6 +74,12 @@ class _UserSetupScreenState extends State<UserSetupScreen>
     });
 
     try {
+      // Verify user is still authenticated
+      final currentUser = _authService.currentUser;
+      if (currentUser == null) {
+        throw Exception('User session expired. Please sign in again.');
+      }
+
       await _authService.completeUserSetup(
         childName: _childNameController.text.trim(),
         childAge: _selectedAge,
@@ -80,9 +97,14 @@ class _UserSetupScreenState extends State<UserSetupScreen>
           ),
         );
       }
+    } on Exception catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Setup Error: ${e.toString()}');
+      }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar('Error completing setup: $e');
+        _showErrorSnackBar('Unexpected error occurred. Please try again.');
+        print('Setup error: $e'); // For debugging
       }
     } finally {
       if (mounted) {

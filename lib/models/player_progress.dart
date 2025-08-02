@@ -114,7 +114,7 @@ class CategoryProgress {
         unlockedLevels: json['unlockedLevels'] ?? 1,
         currentAgeGroup: AgeGroup.values.firstWhere(
           (e) => e.toString() == json['currentAgeGroup'],
-          orElse: () => AgeGroup.toddler,
+          orElse: () => AgeGroup.littleTots,
         ),
       );
 }
@@ -203,7 +203,7 @@ class PlayerProgress {
         lastPlayed: DateTime.parse(json['lastPlayed']),
         highestUnlockedAgeGroup: AgeGroup.values.firstWhere(
           (e) => e.toString() == json['highestUnlockedAgeGroup'],
-          orElse: () => AgeGroup.toddler,
+          orElse: () => AgeGroup.littleTots,
         ),
       );
 
@@ -227,4 +227,23 @@ class PlayerProgress {
               : 2],
     );
   }
+
+  /// Returns a list of all completed level IDs across all categories
+  List<String> get completedLevels {
+    final completedLevelIds = <String>[];
+    for (final categoryProgress in categories.values) {
+      for (final levelProgress in categoryProgress.levels.values) {
+        if (levelProgress.isCompleted) {
+          completedLevelIds.add(levelProgress.levelId);
+        }
+      }
+    }
+    return completedLevelIds;
+  }
+
+  /// Returns the total number of completed levels
+  int get completedLevelsCount => completedLevels.length;
+
+  /// Returns a set of completed level IDs for achievement checking
+  Set<String> get completedLevelsSet => completedLevels.toSet();
 }
