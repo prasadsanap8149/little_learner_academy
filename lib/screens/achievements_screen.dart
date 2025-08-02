@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../models/achievement.dart';
 import '../services/achievement_service.dart';
 import '../services/sound_service.dart';
+import '../services/offline_service.dart';
 
 class AchievementsScreen extends StatefulWidget {
   const AchievementsScreen({super.key});
@@ -18,9 +18,12 @@ class _AchievementsScreenState extends State<AchievementsScreen>
   
   late AnimationController _headerAnimationController;
   late AnimationController _cardsAnimationController;
+  late AnimationController _topBarAnimationController;
   late Animation<double> _headerScaleAnimation;
   late Animation<Offset> _headerSlideAnimation;
+  late Animation<double> _topBarSlideAnimation;
   
+  String _selectedCategory = 'All';
   bool _showUnlockedOnly = false;
 
   @override
@@ -41,6 +44,11 @@ class _AchievementsScreenState extends State<AchievementsScreen>
       vsync: this,
     );
 
+    _topBarAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
     _headerScaleAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -57,6 +65,15 @@ class _AchievementsScreenState extends State<AchievementsScreen>
       curve: Curves.easeOutBack,
     ));
 
+    _topBarSlideAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _topBarAnimationController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _topBarAnimationController.forward();
     _headerAnimationController.forward();
     _cardsAnimationController.forward();
   }
@@ -64,6 +81,249 @@ class _AchievementsScreenState extends State<AchievementsScreen>
   Future<void> _loadAchievements() async {
     await _achievementService.initializeAchievements();
     setState(() {});
+  }
+
+  // Get filtered achievements based on category and unlock status
+  List<Achievement> _getFilteredAchievements() {
+    var achievements = _selectedCategory == 'All' 
+        ? _achievementService.userAchievements
+        : _achievementService.userAchievements.where((a) => 
+            a.category.toString().split('.').last.toLowerCase() == _selectedCategory.toLowerCase()).toList();
+    
+    if (_showUnlockedOnly) {
+      achievements = achievements.where((a) => a.isUnlocked).toList();
+    }
+    
+    return achievements;
+  }
+
+  // Top Achievement Bar showing recent unlocks and featured achievements
+  Widget _buildTopAchievementBar(bool isPhone, bool isTablet) {
+    final recentAchievements = _achievementService.getRecentlyUnlockedAchievements(limit: 3);
+    final featuredAchievement = _achievementService.getFeaturedAchievement();
+    
+    return AnimatedBuilder(
+      animation: _topBarSlideAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, -50 * (1 - _topBarSlideAnimation.value)),
+          child: Opacity(
+            opacity: _topBarSlideAnimation.value,
+            child: Container(
+              height: isPhone ? 120 : 140,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF4CAF50),
+                    const Color(0xFF8BC34A),
+                    const Color(0xFFCDDC39),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: EdgeInsets.all(isPhone ? 12 : 16),
+                  child: Row(
+                    children: [
+                      // Back button
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      
+                      // Title and recent achievements
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Achievements',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: isPhone ? 20 : 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (recentAchievements.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Latest: ${recentAchievements.first.title}',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: isPhone ? 12 : 14,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      
+                      // Featured achievement or progress
+                      if (featuredAchievement != null)
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.star,
+                                color: Colors.yellow[300],
+                                size: isPhone ? 20 : 24,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Featured',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: isPhone ? 10 : 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      
+                      // Quick stats
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${_achievementService.getUnlockedCount()}/${_achievementService.getTotalCount()}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isPhone ? 14 : 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Enhanced filter section with category tabs
+  Widget _buildEnhancedFilterSection(double horizontalPadding, bool isPhone) {
+    final categories = ['All', 'Math', 'Language', 'Science', 'General'];
+    
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
+      child: Column(
+        children: [
+          // Category tabs
+          Container(
+            height: isPhone ? 40 : 45,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                final isSelected = _selectedCategory == category;
+                
+                return Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: MaterialButton(
+                    onPressed: () {
+                      _soundService.playClick();
+                      setState(() => _selectedCategory = category);
+                    },
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isPhone ? 16 : 20,
+                      vertical: isPhone ? 8 : 10,
+                    ),
+                    color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+                    elevation: isSelected ? 4 : 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      category,
+                      style: TextStyle(
+                        color: isSelected ? const Color(0xFF6B73FF) : Colors.white,
+                        fontSize: isPhone ? 12 : 14,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Filter toggle
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _showUnlockedOnly ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.white,
+                      size: isPhone ? 16 : 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _showUnlockedOnly ? 'Unlocked Only' : 'Show All',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isPhone ? 12 : 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: _showUnlockedOnly,
+                      onChanged: (value) {
+                        _soundService.playClick();
+                        setState(() => _showUnlockedOnly = value);
+                      },
+                      activeColor: Colors.white,
+                      activeTrackColor: Colors.white.withOpacity(0.3),
+                      inactiveThumbColor: Colors.white.withOpacity(0.7),
+                      inactiveTrackColor: Colors.white.withOpacity(0.1),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -82,80 +342,68 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     final horizontalPadding = isPhone ? 16.0 : isTablet ? 24.0 : 32.0;
     final verticalSpacing = isPhone ? 12.0 : isTablet ? 16.0 : 20.0;
     
-    final achievements = _showUnlockedOnly 
-        ? _achievementService.getUnlockedAchievements()
-        : _achievementService.userAchievements;
+    final achievements = _getFilteredAchievements();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Achievements',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: isPhone ? 20 : 24,
-          ),
-        ),
-        backgroundColor: const Color(0xFF6B73FF),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _showUnlockedOnly ? Icons.filter_list : Icons.filter_list_off,
-              color: Colors.white,
-              size: isPhone ? 24 : 28,
-            ),
-            onPressed: () {
-              _soundService.playClick();
-              setState(() => _showUnlockedOnly = !_showUnlockedOnly);
-            },
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF6B73FF), Color(0xFF9A8EFF)],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header with statistics
-              SlideTransition(
-                position: _headerSlideAnimation,
-                child: ScaleTransition(
-                  scale: _headerScaleAnimation,
-                  child: _buildHeader(horizontalPadding, isPhone, isTablet),
+      body: OfflineWidget(
+        child: Column(
+          children: [
+            // Top Achievement Bar
+            _buildTopAchievementBar(isPhone, isTablet),
+            
+            // Main Content
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF6B73FF), Color(0xFF9A8EFF)],
+                  ),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    children: [
+                      // Offline Banner
+                      const OfflineBanner(),
+                      
+                      // Header with statistics
+                      SlideTransition(
+                        position: _headerSlideAnimation,
+                        child: ScaleTransition(
+                          scale: _headerScaleAnimation,
+                          child: _buildHeader(horizontalPadding, isPhone, isTablet),
+                        ),
+                      ),
+                      
+                      SizedBox(height: verticalSpacing),
+                      
+                      // Enhanced Filter Section
+                      _buildEnhancedFilterSection(horizontalPadding, isPhone),
+                      
+                      SizedBox(height: verticalSpacing),
+                      
+                      // Achievements grid
+                      Expanded(
+                        child: achievements.isEmpty
+                            ? _buildEmptyState(isPhone)
+                            : _buildAchievementsGrid(
+                                achievements, 
+                                horizontalPadding, 
+                                verticalSpacing,
+                                isPhone,
+                                isTablet,
+                                isDesktop,
+                                isLargeTablet
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              
-              SizedBox(height: verticalSpacing),
-              
-              // Filter buttons
-              _buildFilterButtons(horizontalPadding, isPhone),
-              
-              SizedBox(height: verticalSpacing),
-              
-              // Achievements grid
-              Expanded(
-                child: achievements.isEmpty
-                    ? _buildEmptyState(isPhone)
-                    : _buildAchievementsGrid(
-                        achievements, 
-                        horizontalPadding, 
-                        verticalSpacing,
-                        isPhone,
-                        isTablet,
-                        isDesktop,
-                        isLargeTablet
-                      ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
