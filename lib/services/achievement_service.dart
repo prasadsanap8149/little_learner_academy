@@ -279,4 +279,158 @@ class AchievementService {
       return null;
     }
   }
+
+  // Get recently unlocked achievements
+  List<Achievement> getRecentlyUnlockedAchievements({int limit = 5}) {
+    final unlockedAchievements = _userAchievements
+        .where((achievement) => achievement.isUnlocked)
+        .toList();
+    
+    // Sort by unlock date (most recent first)
+    unlockedAchievements.sort((a, b) {
+      if (a.unlockedAt == null && b.unlockedAt == null) return 0;
+      if (a.unlockedAt == null) return 1;
+      if (b.unlockedAt == null) return -1;
+      return b.unlockedAt!.compareTo(a.unlockedAt!);
+    });
+    
+    return unlockedAchievements.take(limit).toList();
+  }
+
+  // Get featured achievement (highest point value or most recent)
+  Achievement? getFeaturedAchievement() {
+    if (_userAchievements.isEmpty) return null;
+    
+    // First, try to get a recently unlocked high-value achievement
+    final recentHighValue = _userAchievements
+        .where((a) => a.isUnlocked && a.pointValue >= 50)
+        .toList();
+    
+    if (recentHighValue.isNotEmpty) {
+      recentHighValue.sort((a, b) {
+        if (a.unlockedAt == null && b.unlockedAt == null) return b.pointValue.compareTo(a.pointValue);
+        if (a.unlockedAt == null) return 1;
+        if (b.unlockedAt == null) return -1;
+        return b.unlockedAt!.compareTo(a.unlockedAt!);
+      });
+      return recentHighValue.first;
+    }
+    
+    // Otherwise, get the highest value achievement
+    final sorted = List<Achievement>.from(_userAchievements)
+      ..sort((a, b) => b.pointValue.compareTo(a.pointValue));
+    return sorted.first;
+  }
+
+  // Get achievements by category
+  List<Achievement> getAchievementsByCategory(String category) {
+    if (category == 'All') return _userAchievements;
+    return _userAchievements
+        .where((achievement) => achievement.category == category)
+        .toList();
+  }
+
+  // Get achievement progress for a specific game
+  Map<String, double> getGameAchievementProgress(String gameId) {
+    final gameAchievements = _userAchievements
+        .where((a) => a.gameId == gameId)
+        .toList();
+    
+    final progress = <String, double>{};
+    for (final achievement in gameAchievements) {
+      progress[achievement.id] = achievement.currentProgress / achievement.targetValue;
+    }
+    
+    return progress;
+  }
+
+  // Check for milestone achievements
+  Future<void> checkMilestoneAchievements(String userId) async {
+    final unlockedCount = getUnlockedCount();
+    final totalPoints = getTotalPoints();
+    
+    // Check for milestone achievements
+    await checkAndUnlockAchievement(
+      'milestone_5_achievements',
+      unlockedCount >= 5 ? 1 : 0,
+      userId,
+    );
+    
+    await checkAndUnlockAchievement(
+      'milestone_10_achievements',
+      unlockedCount >= 10 ? 1 : 0,
+      userId,
+    );
+    
+    await checkAndUnlockAchievement(
+      'milestone_100_points',
+      totalPoints >= 100 ? 1 : 0,
+      userId,
+    );
+    
+    await checkAndUnlockAchievement(
+      'milestone_500_points',
+      totalPoints >= 500 ? 1 : 0,
+      userId,
+    );
+  }
+
+  // Check and unlock specific achievement
+  Future<void> checkAndUnlockAchievement(
+    String achievementId,
+    int progress,
+    String userId,
+  ) async {
+    try {
+      final achievementIndex = _userAchievements.indexWhere(
+        (achievement) => achievement.id == achievementId,
+      );
+      
+      if (achievementIndex == -1) return;
+      
+      final achievement = _userAchievements[achievementIndex];
+      
+      // Update progress
+      final updatedAchievement = achievement.copyWith(
+        currentProgress: progress,
+        progress: progress,
+      );
+      
+      // Check if achievement should be unlocked
+      if (!achievement.isUnlocked && progress >= achievement.targetValue) {
+        final unlockedAchievement = updatedAchievement.copyWith(
+          isUnlocked: true,
+          unlockedAt: DateTime.now(),
+        );
+        
+        // Update local list
+        _userAchievements[achievementIndex] = unlockedAchievement;
+        
+        // Update in Firestore
+        await _firestore
+            .collection('users')
+            .doc(userId)
+            .collection('achievements')
+            .doc(achievementId)
+            .update(unlockedAchievement.toFirestore());
+        
+        // Play achievement sound
+        await _soundService.playAchievementSound();
+        
+        print('Achievement unlocked: ${achievement.title}');
+      } else if (achievement.currentProgress != progress) {
+        // Update progress only
+        _userAchievements[achievementIndex] = updatedAchievement;
+        
+        await _firestore
+            .collection('users')
+            .doc(userId)
+            .collection('achievements')
+            .doc(achievementId)
+            .update({'currentProgress': progress, 'progress': progress});
+      }
+    } catch (e) {
+      print('Error checking achievement $achievementId: $e');
+    }
+  }
 }
