@@ -203,7 +203,7 @@ class NavigationService {
                   Navigator.of(context).pushReplacementNamed('/admin-dashboard');
                   break;
                 case 'switch_dialog':
-                  showUserModeSwitcher(context);
+                  showAdvancedUserModeSwitcher(context);
                   break;
               }
             },
