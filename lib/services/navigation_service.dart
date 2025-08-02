@@ -176,14 +176,6 @@ class NavigationService {
       },
     );
   }
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   // Custom app bar for different user types
   static PreferredSizeWidget buildAppBar({
