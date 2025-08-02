@@ -6,14 +6,24 @@
 
 #include "generated_plugin_registrant.h"
 
-#include <audioplayers_linux/audioplayers_linux_plugin.h>
-#include <flutter_secure_storage_linux/flutter_secure_storage_linux_plugin.h>
+#include <audioplayers_windows/audioplayers_windows_plugin.h>
+#include <cloud_firestore/cloud_firestore_plugin_c_api.h>
+#include <connectivity_plus/connectivity_plus_windows_plugin.h>
+#include <firebase_auth/firebase_auth_plugin_c_api.h>
+#include <firebase_core/firebase_core_plugin_c_api.h>
+#include <flutter_secure_storage_windows/flutter_secure_storage_windows_plugin.h>
 
-void fl_register_plugins(FlPluginRegistry* registry) {
-  g_autoptr(FlPluginRegistrar) audioplayers_linux_registrar =
-      fl_plugin_registry_get_registrar_for_plugin(registry, "AudioplayersLinuxPlugin");
-  audioplayers_linux_plugin_register_with_registrar(audioplayers_linux_registrar);
-  g_autoptr(FlPluginRegistrar) flutter_secure_storage_linux_registrar =
-      fl_plugin_registry_get_registrar_for_plugin(registry, "FlutterSecureStorageLinuxPlugin");
-  flutter_secure_storage_linux_plugin_register_with_registrar(flutter_secure_storage_linux_registrar);
+void RegisterPlugins(flutter::PluginRegistry* registry) {
+  AudioplayersWindowsPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("AudioplayersWindowsPlugin"));
+  CloudFirestorePluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("CloudFirestorePluginCApi"));
+  ConnectivityPlusWindowsPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("ConnectivityPlusWindowsPlugin"));
+  FirebaseAuthPluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("FirebaseAuthPluginCApi"));
+  FirebaseCorePluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("FirebaseCorePluginCApi"));
+  FlutterSecureStorageWindowsPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("FlutterSecureStorageWindowsPlugin"));
 }
