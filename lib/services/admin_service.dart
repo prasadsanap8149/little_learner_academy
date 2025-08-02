@@ -18,7 +18,7 @@ class AdminService {
   // Admin email addresses with their roles
   static const Map<String, AdminRole> adminEmails = {
     'admin@littlelearnersacademy.com': AdminRole.superAdmin,
-    'sanapprasad2021@gmail.com': AdminRole.superAdmin,
+    'prasad@littlelearnersacademy.com': AdminRole.superAdmin,
     'content@littlelearnersacademy.com': AdminRole.contentManager,
     'support@littlelearnersacademy.com': AdminRole.support,
     // Add more admin emails as needed
@@ -348,6 +348,240 @@ class AdminService {
       endDate: endDate,
       limit: limit,
     );
+  }
+
+  /// Update user role (Super Admin only)
+  Future<bool> updateUserRole(String userId, String newRole) async {
+    if (!await AdminSecurityUtils.checkPrivilegeWithRateLimit(
+      AdminPrivilege.userManagement,
+      'update_user_role',
+      'users',
+    )) {
+      throw Exception('Insufficient privileges to update user roles');
+    }
+
+    if (!isSuperAdmin()) {
+      throw Exception('Only super admins can modify user roles');
+    }
+
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'role': newRole,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Log the admin action
+      await AdminSecurityUtils.logAdminAction(
+        action: 'update_user_role',
+        resourceType: 'users',
+        resourceId: userId,
+        additionalData: {'newRole': newRole},
+      );
+
+      return true;
+    } catch (e) {
+      print('Error updating user role: $e');
+      await AdminSecurityUtils.logAdminAction(
+        action: 'update_user_role_failed',
+        resourceType: 'users',
+        resourceId: userId,
+        additionalData: {'error': e.toString(), 'newRole': newRole},
+      );
+      return false;
+    }
+  }
+
+  /// Get user role from Firebase
+  static Future<String?> getUserRoleFromFirebase([String? userId]) async {
+    try {
+      final uid = userId ?? FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return null;
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data();
+        return data?['role'] as String?;
+      }
+      return null;
+    } catch (e) {
+      print('Error getting user role from Firebase: $e');
+      return null;
+    }
+  }
+
+  /// Check if user has specific role (checks both hardcoded and Firebase)
+  static Future<bool> hasRole(String role, [String? userId]) async {
+    // First check hardcoded admin emails for backward compatibility
+    if (isAdminUser()) {
+      final adminRole = getAdminRole();
+      if (adminRole != null) {
+        switch (role.toLowerCase()) {
+          case 'superadmin':
+          case 'super_admin':
+            return adminRole == AdminRole.superAdmin;
+          case 'contentmanager':
+          case 'content_manager':
+            return adminRole == AdminRole.contentManager;
+          case 'support':
+            return adminRole == AdminRole.support;
+          case 'admin':
+            return true; // Any admin role
+        }
+      }
+    }
+
+    // Then check Firebase role
+    final firebaseRole = await getUserRoleFromFirebase(userId);
+    return firebaseRole?.toLowerCase() == role.toLowerCase();
+  }
+
+  /// Get comprehensive user role (combines hardcoded and Firebase)
+  static Future<String> getComprehensiveUserRole([String? userId]) async {
+    // Check hardcoded admin roles first
+    final adminRole = getAdminRole();
+    if (adminRole != null) {
+      switch (adminRole) {
+        case AdminRole.superAdmin:
+          return 'super_admin';
+        case AdminRole.contentManager:
+          return 'content_manager';
+        case AdminRole.support:
+          return 'support';
+      }
+    }
+
+    // Check Firebase role
+    final firebaseRole = await getUserRoleFromFirebase(userId);
+    if (firebaseRole != null) {
+      return firebaseRole;
+    }
+
+    // Default role
+    return 'user';
+  }
+
+  /// Switch user to different role (for testing/demo purposes - Super Admin only)
+  static Future<bool> switchUserRole(BuildContext context, String targetRole) async {
+    if (!isSuperAdmin()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only super admins can switch roles'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return false;
+
+      // Update role in Firebase
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set({
+        'role': targetRole,
+        'email': user.email,
+        'displayName': user.displayName,
+        'lastRoleSwitch': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // Log the action
+      await AdminSecurityUtils.logAdminAction(
+        action: 'role_switch',
+        resourceType: 'users',
+        resourceId: user.uid,
+        additionalData: {'targetRole': targetRole},
+      );
+
+      // Navigate based on new role
+      await _navigateBasedOnRole(context, targetRole);
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Switched to $targetRole mode'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error switching role: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  /// Navigate based on user role
+  static Future<void> _navigateBasedOnRole(BuildContext context, String role) async {
+    switch (role.toLowerCase()) {
+      case 'super_admin':
+      case 'content_manager':
+      case 'support':
+      case 'admin':
+        Navigator.of(context).pushReplacementNamed('/admin-dashboard');
+        break;
+      case 'user':
+      default:
+        Navigator.of(context).pushReplacementNamed('/home');
+        break;
+    }
+  }
+
+  /// Create or update user profile with role
+  Future<bool> createUserWithRole({
+    required String email,
+    required String name,
+    required String role,
+    String? userId,
+  }) async {
+    if (!await AdminSecurityUtils.checkPrivilegeWithRateLimit(
+      AdminPrivilege.userManagement,
+      'create_user_with_role',
+      'users',
+    )) {
+      throw Exception('Insufficient privileges to create users');
+    }
+
+    try {
+      final docId = userId ?? email.replaceAll('@', '_').replaceAll('.', '_');
+      
+      await _firestore.collection('users').doc(docId).set({
+        'email': email,
+        'displayName': name,
+        'role': role,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'isActive': true,
+      }, SetOptions(merge: true));
+
+      // Log the admin action
+      await AdminSecurityUtils.logAdminAction(
+        action: 'create_user_with_role',
+        resourceType: 'users',
+        resourceId: docId,
+        additionalData: {'email': email, 'role': role, 'name': name},
+      );
+
+      return true;
+    } catch (e) {
+      print('Error creating user with role: $e');
+      return false;
+    }
   }
 }
 
